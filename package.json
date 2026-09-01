@@ -1,5 +1,5 @@
 {
-  "name": "split-and-settle-backend",
+  "name": "split-and-settle",
   "version": "1.0.0",
   "description": "Backend for Split & Settle receipt splitting and settlement system",
   "main": "src/server.js",

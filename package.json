@@ -1,0 +1,39 @@
+{
+  "name": "split-and-settle-backend",
+  "version": "1.0.0",
+  "description": "Backend for Split & Settle receipt splitting and settlement system",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "jest --runInBand"
+  },
+  "keywords": [
+    "splitwise",
+    "receipt-parser",
+    "gemini-vision",
+    "supabase",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^2.20.0",
+    "@supabase/supabase-js": "^2.112.4",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "multer": "^2.3.0",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "jest": "^30.5.1",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  }
+}

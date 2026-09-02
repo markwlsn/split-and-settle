@@ -1,17 +1,17 @@
 const { generateInviteCode } = require('../utils/splitCalculator');
 const { logActivity } = require('../lib/activityLogger');
 const { supabaseAdmin } = require('../lib/supabaseClient');
-const { computeBalances } = require('../utils/settlement');
 
 async function createGroup(req, res, next) {
   try {
-    const { name, displayName } = req.body;
+    const { name, displayName, currency = 'USD' } = req.body;
     const inviteCode = generateInviteCode();
 
     const { data: group, error: groupError } = await req.supabase
       .from('groups')
       .insert({
         name,
+        currency: currency.toUpperCase(),
         created_by: req.userId,
         invite_code: inviteCode,
       })
@@ -43,10 +43,105 @@ async function createGroup(req, res, next) {
       actorId: req.userId,
       actionType: 'GROUP_CREATED',
       description: `${memberName} created the group "${name}"`,
-      metadata: { inviteCode },
+      metadata: { inviteCode, currency },
     });
 
     return res.status(201).json({ ...group, membership: member });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateGroup(req, res, next) {
+  try {
+    const { id: groupId } = req.params;
+    const { name, currency, regenerateInviteCode } = req.body;
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (currency) updates.currency = currency.toUpperCase();
+    if (regenerateInviteCode) updates.invite_code = generateInviteCode();
+
+    const { data: updated, error } = await req.supabase
+      .from('groups')
+      .update(updates)
+      .eq('id', groupId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    await logActivity(req.supabase, {
+      groupId,
+      actorId: req.userId,
+      actionType: 'GROUP_UPDATED',
+      description: `Group settings updated`,
+      metadata: updates,
+    });
+
+    return res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function leaveGroup(req, res, next) {
+  try {
+    const { id: groupId } = req.params;
+
+    // Check if user is the creator
+    const { data: group } = await req.supabase
+      .from('groups')
+      .select('created_by')
+      .eq('id', groupId)
+      .single();
+
+    if (group && group.created_by === req.userId) {
+      return res.status(400).json({
+        error: 'Group creators cannot leave the group. You may delete the group instead.',
+      });
+    }
+
+    const { error: leaveError } = await req.supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', req.userId);
+
+    if (leaveError) {
+      return res.status(400).json({ error: leaveError.message });
+    }
+
+    await logActivity(req.supabase, {
+      groupId,
+      actorId: req.userId,
+      actionType: 'MEMBER_LEFT',
+      description: `A member left the group`,
+      metadata: { userId: req.userId },
+    });
+
+    return res.json({ message: 'Successfully left the group' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteGroup(req, res, next) {
+  try {
+    const { id: groupId } = req.params;
+
+    const { error } = await req.supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ message: 'Group deleted successfully' });
   } catch (err) {
     next(err);
   }
@@ -56,7 +151,6 @@ async function joinGroup(req, res, next) {
   try {
     const { inviteCode, displayName } = req.body;
 
-    // Use admin client to lookup group by invite code (since user is not yet a member, RLS prevents select)
     const { data: group, error: findError } = await supabaseAdmin
       .from('groups')
       .select('*')
@@ -67,7 +161,6 @@ async function joinGroup(req, res, next) {
       return res.status(404).json({ error: 'Invalid invite code or group not found' });
     }
 
-    // Check if already a member
     const { data: existingMember } = await supabaseAdmin
       .from('group_members')
       .select('*')
@@ -149,17 +242,20 @@ async function getGroupDetails(req, res, next) {
     // Summary counts
     const { data: receipts } = await req.supabase
       .from('receipts')
-      .select('id, total_amount, status')
-      .eq('group_id', groupId);
+      .select('id, total_amount, status, category, merchant_name, receipt_date, paid_by, image_path, created_at')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false });
 
-    const totalSpent = (receipts || [])
+    const allReceipts = receipts || [];
+    const totalSpent = allReceipts
       .filter(r => r.status === 'confirmed')
       .reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0);
 
     return res.json({
       ...group,
+      receipts: allReceipts,
       stats: {
-        receiptCount: (receipts || []).length,
+        receiptCount: allReceipts.length,
         totalConfirmedSpend: Math.round(totalSpent * 100) / 100,
       },
     });
@@ -231,7 +327,6 @@ async function getGroupActivity(req, res, next) {
       .limit(parseInt(limit, 10) || 50);
 
     if (error) {
-      // If table doesn't exist yet, return empty list gracefully
       return res.json([]);
     }
     return res.json(data || []);
@@ -244,13 +339,11 @@ async function getGroupAnalytics(req, res, next) {
   try {
     const { id: groupId } = req.params;
 
-    // Fetch members
     const { data: members } = await req.supabase
       .from('group_members')
       .select('*')
       .eq('group_id', groupId);
 
-    // Fetch confirmed receipts
     const { data: receipts } = await req.supabase
       .from('receipts')
       .select('*')
@@ -260,7 +353,6 @@ async function getGroupAnalytics(req, res, next) {
     const confirmedReceipts = receipts || [];
     const totalSpent = confirmedReceipts.reduce((sum, r) => sum + (parseFloat(r.total_amount) || 0), 0);
 
-    // Category breakdown
     const categoryBreakdown = {};
     const merchantMap = {};
     const paidByMember = {};
@@ -277,13 +369,11 @@ async function getGroupAnalytics(req, res, next) {
       paidByMember[r.paid_by] = Math.round(((paidByMember[r.paid_by] || 0) + amount) * 100) / 100;
     });
 
-    // Top merchants
     const topMerchants = Object.entries(merchantMap)
       .map(([name, total]) => ({ name, total }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
 
-    // Member consumption breakdown from shares
     const receiptIds = confirmedReceipts.map(r => r.id);
     let shares = [];
     let items = [];
@@ -341,6 +431,9 @@ async function getGroupAnalytics(req, res, next) {
 
 module.exports = {
   createGroup,
+  updateGroup,
+  leaveGroup,
+  deleteGroup,
   joinGroup,
   listGroups,
   getGroupDetails,

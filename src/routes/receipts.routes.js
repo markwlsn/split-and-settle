@@ -4,18 +4,23 @@ const multer = require('multer');
 const { requireAuth } = require('../middleware/auth.middleware');
 const { validate } = require('../middleware/validate.middleware');
 const {
+  createItemSchema,
   updateItemSchema,
   updateReceiptSchema,
+  manualExpenseSchema,
   sharesSchema,
   autoSplitSchema,
 } = require('../utils/schemas');
 const {
   uploadReceipt,
+  createManualExpense,
   parseReceipt,
   getReceipt,
   getReceiptImageUrl,
   updateReceipt,
   deleteReceipt,
+  addItem,
+  deleteItem,
   autoSplitReceipt,
   updateItem,
   setItemShares,
@@ -34,8 +39,11 @@ const upload = multer({
   },
 });
 
-// Upload receipt for a group
+// Upload photo receipt for a group
 router.post('/groups/:id/receipts', requireAuth, upload.single('image'), uploadReceipt);
+
+// Create manual expense without a photo
+router.post('/groups/:id/expenses', requireAuth, validate(manualExpenseSchema), createManualExpense);
 
 // Parse receipt with Gemini Vision
 router.post('/receipts/:id/parse', requireAuth, parseReceipt);
@@ -54,6 +62,12 @@ router.delete('/receipts/:id', requireAuth, deleteReceipt);
 
 // Smart auto-split across members
 router.post('/receipts/:id/auto-split', requireAuth, validate(autoSplitSchema), autoSplitReceipt);
+
+// Add individual line item to receipt
+router.post('/receipts/:receiptId/items', requireAuth, validate(createItemSchema), addItem);
+
+// Delete individual line item from receipt
+router.delete('/receipts/:receiptId/items/:itemId', requireAuth, deleteItem);
 
 // Update individual receipt item
 router.patch('/receipts/:receiptId/items/:itemId', requireAuth, validate(updateItemSchema), updateItem);

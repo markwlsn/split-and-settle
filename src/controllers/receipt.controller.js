@@ -3,14 +3,14 @@ const path = require('path');
 const { getGeminiClient } = require('../lib/geminiClient');
 const { RECEIPT_PARSE_PROMPT } = require('../utils/receiptPrompt');
 const { logActivity } = require('../lib/activityLogger');
-const { calculateEqualShares, calculateProportionalTaxAndTip } = require('../utils/splitCalculator');
+const { calculateEqualShares } = require('../utils/splitCalculator');
 const { recomputeSettlements } = require('./settlement.controller');
 
 function getMimeType(filePath, fallbackType) {
   if (fallbackType && fallbackType.startsWith('image/')) {
     return fallbackType;
   }
-  const ext = path.extname(filePath).toLowerCase();
+  const ext = path.extname(filePath || '').toLowerCase();
   switch (ext) {
     case '.png':
       return 'image/png';
@@ -92,6 +92,83 @@ async function uploadReceipt(req, res, next) {
   }
 }
 
+async function createManualExpense(req, res, next) {
+  try {
+    const { id: groupId } = req.params;
+    const {
+      merchantName,
+      receiptDate,
+      category,
+      notes,
+      paidBy,
+      taxAmount = 0,
+      tipAmount = 0,
+      items,
+    } = req.body;
+
+    const itemsTotal = items.reduce((sum, item) => sum + (Number(item.price) * (item.quantity || 1)), 0);
+    const overallTotal = Math.round((itemsTotal + Number(taxAmount) + Number(tipAmount)) * 100) / 100;
+
+    const payerId = paidBy || req.userId;
+
+    // Insert receipt record (already in 'parsed' status ready for splitting)
+    const { data: receipt, error: receiptError } = await req.supabase
+      .from('receipts')
+      .insert({
+        group_id: groupId,
+        uploaded_by: req.userId,
+        paid_by: payerId,
+        image_path: null,
+        merchant_name: merchantName,
+        receipt_date: receiptDate || new Date().toISOString().split('T')[0],
+        category: category || 'Other',
+        notes: notes || null,
+        tax_amount: Math.max(0, Number(taxAmount)),
+        tip_amount: Math.max(0, Number(tipAmount)),
+        total_amount: overallTotal,
+        status: 'parsed',
+      })
+      .select()
+      .single();
+
+    if (receiptError) {
+      return res.status(400).json({ error: receiptError.message });
+    }
+
+    // Insert items
+    const rows = items.map(item => ({
+      receipt_id: receipt.id,
+      name: item.name,
+      price: Number(item.price),
+      quantity: item.quantity || 1,
+    }));
+
+    const { data: insertedItems, error: itemsError } = await req.supabase
+      .from('receipt_items')
+      .insert(rows)
+      .select();
+
+    if (itemsError) {
+      return res.status(400).json({ error: itemsError.message });
+    }
+
+    await logActivity(req.supabase, {
+      groupId,
+      actorId: req.userId,
+      actionType: 'MANUAL_EXPENSE_CREATED',
+      description: `Expense created: "${merchantName}" ($${overallTotal.toFixed(2)})`,
+      metadata: { receiptId: receipt.id, itemCount: insertedItems.length },
+    });
+
+    return res.status(201).json({
+      receipt,
+      items: insertedItems,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function parseReceipt(req, res, next) {
   try {
     const { id: receiptId } = req.params;
@@ -104,6 +181,10 @@ async function parseReceipt(req, res, next) {
 
     if (receiptError || !receipt) {
       return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    if (!receipt.image_path) {
+      return res.status(400).json({ error: 'This is a manual expense without an attached image.' });
     }
 
     // Download image from Supabase Storage
@@ -162,7 +243,6 @@ async function parseReceipt(req, res, next) {
       });
     }
 
-    // Validate receipt_date format if present
     let validReceiptDate = null;
     if (parsed.receipt_date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.receipt_date)) {
       validReceiptDate = parsed.receipt_date;
@@ -257,7 +337,10 @@ async function getReceiptImageUrl(req, res, next) {
       return res.status(404).json({ error: 'Receipt not found' });
     }
 
-    // Generate a temporary signed URL valid for 15 minutes (900 seconds)
+    if (!receipt.image_path) {
+      return res.status(404).json({ error: 'No image attached to this manual expense.' });
+    }
+
     const { data, error: signError } = await req.supabase.storage
       .from('receipts')
       .createSignedUrl(receipt.image_path, 900);
@@ -343,8 +426,10 @@ async function deleteReceipt(req, res, next) {
       return res.status(404).json({ error: 'Receipt not found' });
     }
 
-    // Remove file from storage
-    await req.supabase.storage.from('receipts').remove([receipt.image_path]);
+    // Remove file from storage if image exists
+    if (receipt.image_path) {
+      await req.supabase.storage.from('receipts').remove([receipt.image_path]);
+    }
 
     // Delete database row
     const { error: deleteError } = await req.supabase
@@ -375,6 +460,51 @@ async function deleteReceipt(req, res, next) {
   }
 }
 
+async function addItem(req, res, next) {
+  try {
+    const { receiptId } = req.params;
+    const { name, price, quantity = 1 } = req.body;
+
+    const { data: item, error } = await req.supabase
+      .from('receipt_items')
+      .insert({
+        receipt_id: receiptId,
+        name,
+        price,
+        quantity,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.status(201).json(item);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteItem(req, res, next) {
+  try {
+    const { itemId } = req.params;
+
+    const { error } = await req.supabase
+      .from('receipt_items')
+      .delete()
+      .eq('id', itemId);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.json({ message: 'Item deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function autoSplitReceipt(req, res, next) {
   try {
     const { id: receiptId } = req.params;
@@ -392,7 +522,7 @@ async function autoSplitReceipt(req, res, next) {
 
     const items = receipt.receipt_items || [];
     if (items.length === 0) {
-      return res.status(400).json({ error: 'Receipt has no items to split. Parse items first.' });
+      return res.status(400).json({ error: 'Receipt has no items to split. Add items first.' });
     }
 
     // Determine target members
@@ -417,7 +547,6 @@ async function autoSplitReceipt(req, res, next) {
     const allSharesToInsert = [];
 
     if (mode === 'EQUAL_ALL' || mode === 'EQUAL_SELECTED') {
-      // Split each item equally among target members
       items.forEach(item => {
         const itemPrice = parseFloat(item.price);
         const shares = calculateEqualShares(itemPrice, targetUserIds);
@@ -487,7 +616,7 @@ async function updateItem(req, res, next) {
 async function setItemShares(req, res, next) {
   try {
     const { itemId } = req.params;
-    const { shares } = req.body; // Array of { userId, shareAmount }
+    const { shares } = req.body;
 
     const { data: item, error: itemError } = await req.supabase
       .from('receipt_items')
@@ -508,15 +637,10 @@ async function setItemShares(req, res, next) {
       });
     }
 
-    // Remove previous shares for this item
-    const { error: deleteError } = await req.supabase
+    await req.supabase
       .from('item_shares')
       .delete()
       .eq('item_id', itemId);
-
-    if (deleteError) {
-      return res.status(400).json({ error: `Failed to reset shares: ${deleteError.message}` });
-    }
 
     const rows = shares.map(s => ({
       item_id: itemId,
@@ -541,11 +665,14 @@ async function setItemShares(req, res, next) {
 
 module.exports = {
   uploadReceipt,
+  createManualExpense,
   parseReceipt,
   getReceipt,
   getReceiptImageUrl,
   updateReceipt,
   deleteReceipt,
+  addItem,
+  deleteItem,
   autoSplitReceipt,
   updateItem,
   setItemShares,

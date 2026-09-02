@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   invite_code TEXT UNIQUE,
+  currency TEXT NOT NULL DEFAULT 'USD',
   created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -27,7 +28,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   uploaded_by UUID NOT NULL REFERENCES auth.users(id),
   paid_by UUID NOT NULL REFERENCES auth.users(id),
-  image_path TEXT NOT NULL,
+  image_path TEXT,
   merchant_name TEXT,
   total_amount NUMERIC(10,2),
   tax_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -104,6 +105,14 @@ CREATE POLICY "groups_insert_own" ON groups FOR INSERT WITH CHECK (
   auth.uid() = created_by
 );
 
+CREATE POLICY "groups_update_creator" ON groups FOR UPDATE USING (
+  auth.uid() = created_by
+);
+
+CREATE POLICY "groups_delete_creator" ON groups FOR DELETE USING (
+  auth.uid() = created_by
+);
+
 -- GROUP MEMBERS POLICIES
 CREATE POLICY "members_select_same_group" ON group_members FOR SELECT USING (
   EXISTS (
@@ -120,6 +129,14 @@ CREATE POLICY "members_insert_if_group_member_or_creator" ON group_members FOR I
   OR EXISTS (
     SELECT 1 FROM group_members gm
     WHERE gm.group_id = group_members.group_id AND gm.user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "members_delete_own_or_creator" ON group_members FOR DELETE USING (
+  auth.uid() = user_id
+  OR EXISTS (
+    SELECT 1 FROM groups g
+    WHERE g.id = group_id AND g.created_by = auth.uid()
   )
 );
 

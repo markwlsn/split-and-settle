@@ -14,6 +14,15 @@ const loginSchema = z.object({
 const groupSchema = z.object({
   name: z.string().min(1, { message: 'Group name is required' }),
   displayName: z.string().min(1).optional(),
+  currency: z.string().min(1).max(5).optional(),
+});
+
+const updateGroupSchema = z.object({
+  name: z.string().min(1).optional(),
+  currency: z.string().min(1).max(5).optional(),
+  regenerateInviteCode: z.boolean().optional(),
+}).refine(data => Object.keys(data).length > 0, {
+  message: 'At least one field must be provided to update group',
 });
 
 const joinGroupSchema = z.object({
@@ -26,12 +35,38 @@ const memberSchema = z.object({
   displayName: z.string().min(1, { message: 'Display name is required' }),
 });
 
+const createItemSchema = z.object({
+  name: z.string().min(1, { message: 'Item name is required' }),
+  price: z.number().positive({ message: 'Price must be positive' }),
+  quantity: z.number().int().positive({ message: 'Quantity must be a positive integer' }).optional(),
+});
+
 const updateItemSchema = z.object({
   name: z.string().min(1).optional(),
   price: z.number().positive({ message: 'Price must be positive' }).optional(),
   quantity: z.number().int().positive({ message: 'Quantity must be a positive integer' }).optional(),
 }).refine(data => Object.keys(data).length > 0, {
   message: 'At least one field (name, price, quantity) must be provided for update',
+});
+
+const manualExpenseSchema = z.object({
+  merchantName: z.string().min(1, { message: 'Merchant/Expense title is required' }),
+  receiptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date must be in YYYY-MM-DD format' }).nullable().optional(),
+  category: z.enum([
+    'Food & Dining',
+    'Groceries',
+    'Transport',
+    'Entertainment',
+    'Lodging',
+    'Utilities',
+    'Shopping',
+    'Other',
+  ]).optional(),
+  notes: z.string().optional(),
+  paidBy: z.string().uuid().optional(),
+  taxAmount: z.number().nonnegative().optional(),
+  tipAmount: z.number().nonnegative().optional(),
+  items: z.array(createItemSchema).min(1, { message: 'At least one item is required' }),
 });
 
 const updateReceiptSchema = z.object({
@@ -81,9 +116,12 @@ module.exports = {
   registerSchema,
   loginSchema,
   groupSchema,
+  updateGroupSchema,
   joinGroupSchema,
   memberSchema,
+  createItemSchema,
   updateItemSchema,
+  manualExpenseSchema,
   updateReceiptSchema,
   sharesSchema,
   autoSplitSchema,

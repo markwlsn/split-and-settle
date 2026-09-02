@@ -2,9 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth.middleware');
 const { validate } = require('../middleware/validate.middleware');
-const { groupSchema, joinGroupSchema, memberSchema } = require('../utils/schemas');
+const {
+  groupSchema,
+  updateGroupSchema,
+  joinGroupSchema,
+  memberSchema,
+} = require('../utils/schemas');
 const {
   createGroup,
+  updateGroup,
+  leaveGroup,
+  deleteGroup,
   joinGroup,
   listGroups,
   getGroupDetails,
@@ -23,8 +31,17 @@ router.post('/', requireAuth, validate(groupSchema), createGroup);
 // List user's groups
 router.get('/', requireAuth, listGroups);
 
-// Get single group details and summary stats
+// Get single group details, receipts, and summary stats
 router.get('/:id', requireAuth, getGroupDetails);
+
+// Update group settings (name, currency, regenerate code)
+router.patch('/:id', requireAuth, validate(updateGroupSchema), updateGroup);
+
+// Leave group
+router.post('/:id/leave', requireAuth, leaveGroup);
+
+// Delete group
+router.delete('/:id', requireAuth, deleteGroup);
 
 // Add member by userId
 router.post('/:id/members', requireAuth, validate(memberSchema), addMember);

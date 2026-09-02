@@ -1,136 +1,137 @@
-# Split & Settle Backend (Supabase + Google Gemini Vision)
+# 🧾 Split & Settle
 
-Production-grade, hackathon-ready Express backend for **Split & Settle** — an intelligent receipt splitting and debt settlement platform with automated receipt OCR/itemization powered by **Google Gemini Vision**, authenticated multi-tenant group isolation enforced via **Supabase Postgres Row Level Security (RLS)**, and enterprise-grade privacy protection for real receipt photos.
+> **Intelligent Receipt Splitting & Debt Optimization Powered by Google Gemini Vision & Supabase**
 
----
-
-## 🛡️ Enterprise Security & Privacy for Real Receipts
-
-- **PII Redaction via Gemini Vision**: The AI vision prompt explicitly forbids and filters extraction of card numbers, payment tokens, cashier/cardholder names, and phone numbers.
-- **Short-Lived Signed Image URLs**: Uploaded photos are kept strictly in a private bucket. The backend generates 15-minute expiring signed URLs (`GET /receipts/:id/image-url`) only after verifying group membership.
-- **HTTP Security & Protection**: Express configured with `helmet` (HSTS, CSP, XSS filtering, clickjacking protection) and body size limits.
-- **Zero Disk Writes**: In-memory streaming uploads directly to Supabase Storage.
+[![React](https://img.shields.io/badge/React-18-blue.svg?logo=react)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg?logo=vite)](https://vitejs.dev/)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC.svg?logo=tailwind-css)](https://tailwindcss.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-Express-green.svg?logo=node.js)](https://nodejs.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20%7C%20RLS-3ECF8E.svg?logo=supabase)](https://supabase.com/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-Vision%20AI-4285F4.svg?logo=google)](https://deepmind.google/technologies/gemini/)
 
 ---
 
-## ✨ Features
+## 🌟 Overview
 
-- **Supabase Auth & RLS**: Scoped to caller's JWT; Row Level Security automatically restricts queries and modifications to verified group members.
-- **Group Invite Codes (`POST /groups/join`)**: Generates 6-character alphanumeric codes (e.g. `TRIP26`) for frictionless member onboarding without UUID exchange.
-- **Multimodal AI Vision Parsing**: Uses Google Gemini Vision (`gemini-2.5-flash`) to extract line items, merchant name, category, total, tax, and tip.
-- **Smart Auto-Split & Proportional Tax/Tip Calculator**:
-  - `EQUAL_ALL`: Splits all items equally among all group members with exact penny reconciliation.
-  - `EQUAL_SELECTED`: Splits items equally among chosen members.
-  - `PROPORTIONAL_TAX_TIP`: Proportions receipt tax & tip based on each member's individual subtotal.
-- **Pure Settlement Engine**: Recomputes net balances across multi-payer receipts and minimizes transaction count using a greedy settlement simplification algorithm.
-- **Group Activity Feed & Audit Trail**: Real-time event log of who uploaded receipts, split items, and settled debts (`GET /groups/:id/activity`).
-- **Spending Analytics & Insights**: Total spend, category breakdown (for pie charts), top merchants, and per-member consumption metrics (`GET /groups/:id/analytics`).
-- **Receipt Management**: Edit payer, merchant, category, notes (`PATCH /receipts/:id`) or delete receipts with automatic settlement recalculation (`DELETE /receipts/:id`).
+**Split & Settle** eliminates the friction of splitting shared expenses. Simply take a photo of any receipt — whether in English, Japanese, Tagalog, Spanish, French, or German — and **Google Gemini Vision** automatically extracts itemized lines, prices, taxes, and detects the currency. 
+
+Our algorithmic settlement engine then reduces circular group debts to the **absolute minimum number of transactions** using a pure **Greedy Minimum Cash Flow algorithm**.
 
 ---
 
-## Project Structure
+## ✨ Key Features
+
+- 📸 **Universal Multilingual AI Receipt OCR**: Powered by Google Gemini Vision. Seamlessly parses itemized receipts in English, Japanese (Kanji/Kana), Korean, Tagalog, Spanish, French, German, Italian, etc., with automatic English translations and PII privacy redaction.
+- 🌍 **Universal Multi-Currency Detection**: Auto-detects currencies from receipt symbols (`$`, `₱`, `¥`, `€`, `£`, `₩`, `₹`, `฿`, `₫`, `R$`, etc.) or permits 1-click manual switching with zero-decimal currency support (JPY, KRW, VND, IDR).
+- ⚡ **Direct Receipt Onboarding**: Attach a receipt directly while creating a group — Gemini automatically scans the receipt, sets the currency, and takes you straight into the itemized split screen.
+- 🧮 **Greedy Settlement Optimization**: Minimizes peer-to-peer payments so groups never have to execute circular transfers.
+- 🔒 **Enterprise Row-Level Security (RLS)**: Enforces multi-tenant data privacy and group isolation directly at the database level using PostgreSQL security definer policies.
+- 🎟️ **6-Character Invite Codes**: Join groups instantly with human-readable invite codes (e.g. `TRIP26`) without sharing UUIDs.
+- 📊 **Spending Analytics & Activity Feed**: Category distribution charts, top merchants, per-member consumption metrics, and a chronological audit log.
+- 📤 **Export & Share**: 1-click CSV expense ledger download and instant formatted settlement summaries for WhatsApp, Telegram, or Discord.
+
+---
+
+## 🏗️ Architecture
 
 ```
 split-and-settle/
-├── src/
-│   ├── lib/
-│   │   ├── supabaseClient.js      # Admin, anonymous, and user-scoped Supabase clients
-│   │   ├── geminiClient.js        # Google Gemini AI client
-│   │   └── activityLogger.js      # Group activity audit trail logger
-│   ├── routes/
-│   │   ├── auth.routes.js         # /auth (register, login)
-│   │   ├── groups.routes.js       # /groups (create, join, list, members, activity, analytics)
-│   │   ├── receipts.routes.js     # /groups/:id/receipts, /receipts/:id/* (upload, parse, signed-url, split, edit, delete)
-│   │   └── settlements.routes.js  # /groups/:id/settlements, /groups/:id/settlements/payments
-│   ├── controllers/
-│   │   ├── auth.controller.js
-│   │   ├── group.controller.js
-│   │   ├── receipt.controller.js
-│   │   └── settlement.controller.js
-│   ├── middleware/
-│   │   ├── auth.middleware.js     # JWT extraction & Supabase user context binding
-│   │   ├── validate.middleware.js # Zod validation middleware
-│   │   └── error.middleware.js    # Global error handling
-│   ├── utils/
-│   │   ├── settlement.js          # Pure balance calculation & min-transaction algorithm
-│   │   ├── splitCalculator.js     # Equal split, proportional tax/tip, invite codes
-│   │   ├── receiptPrompt.js       # Structured JSON extraction prompt with PII redaction
-│   │   └── schemas.js             # Zod validation schemas
-│   ├── app.js                     # Express app configuration & middleware
-│   └── server.js                  # Server bootstrap
-├── sql/
-│   ├── schema.sql                 # Full unified database schema & RLS policies
-│   └── schema_v2.sql              # Migration script for invite codes, categories, activity logs
-├── tests/
-│   ├── settlement.test.js         # Unit tests for settlement logic & balance math
-│   ├── features.test.js           # Unit tests for auto-splits, tax/tip, invite codes
-│   └── api.test.js                # API integration & validation tests
-├── .env.example
-├── .gitignore
-├── package.json
-└── README.md
+├── frontend/                     # React 18 + Vite + Tailwind CSS Client
+│   ├── src/
+│   │   ├── components/           # Modals, Navbar, Activity Feed, Toast System
+│   │   ├── views/                # Auth, Dashboard, Group Hub, Receipt Splitter
+│   │   ├── context/              # AuthContext & ToastContext
+│   │   ├── services/             # API client with JWT bearer authentication
+│   │   └── utils/                # Currency formatters & math utilities
+│   └── vite.config.js
+│
+├── sql/                          # Supabase PostgreSQL Schemas & RLS Fixes
+│   └── schema.sql                # Complete master database schema
+│
+├── src/                          # Express REST API Backend
+│   ├── controllers/              # Auth, Group, Receipt, Settlement controllers
+│   ├── lib/                      # Supabase & Gemini AI client factories
+│   ├── routes/                   # Validated REST API endpoints
+│   ├── utils/                    # Settlement algorithms & split calculators
+│   └── server.js                 # HTTP Server entry point
+│
+└── tests/                        # 42 Passing automated Jest test suites
 ```
 
 ---
 
-## Setup & Quickstart
+## 🚀 Getting Started
 
-### 1. Environment Variables
-In `.env`:
-```env
+### Prerequisites
+- **Node.js**: v18+ or v20+
+- **Supabase Account**: [supabase.com](https://supabase.com)
+- **Google Gemini API Key**: [aistudio.google.com](https://aistudio.google.com/)
+
+---
+
+### 1. Database Setup (Supabase)
+1. Open your **Supabase Dashboard** → **SQL Editor** → **New Query**.
+2. Copy and run the entire contents of [`sql/schema.sql`](./sql/schema.sql).
+3. Ensure a storage bucket named `receipts` exists (set to Private).
+
+---
+
+### 2. Backend Setup
+```bash
+# Clone the repository
+git clone https://github.com/markwlsn/split-and-settle.git
+cd split-and-settle
+
+# Install backend dependencies
+npm install
+
+# Configure environment variables
+cp .env.example .env
+```
+
+Edit `.env` with your credentials:
+```ini
 PORT=5000
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-public-key
+SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 GEMINI_API_KEY=your-gemini-api-key
 NODE_ENV=development
 ```
 
-### 2. Database Schema
-Run [`sql/schema.sql`](file:///C:/Users/User.MIS/Documents/Projects/split-and-settle/sql/schema.sql) (or [`sql/schema_v2.sql`](file:///C:/Users/User.MIS/Documents/Projects/split-and-settle/sql/schema_v2.sql) if upgrading an existing DB) in your **Supabase SQL Editor**.
+Start the backend server:
+```bash
+npm run dev
+```
+*Backend runs on `http://localhost:5000`*
 
-### 3. Run Test Suite
+---
+
+### 3. Frontend Setup
+```bash
+# In a new terminal window:
+cd split-and-settle/frontend
+
+# Install frontend dependencies
+npm install
+
+# Start the Vite development server
+npm run dev
+```
+*Frontend runs on `http://localhost:5173`*
+
+---
+
+## 🧪 Running Tests
+
+The backend includes 42 unit and integration tests verifying settlement algorithms, penny reconciliation, and validation guards:
+
 ```bash
 npm test
 ```
 
-### 4. Start Development Server
-```bash
-npm run dev
-```
-
 ---
 
-## API Reference
+## 📜 License
 
-### 1. Authentication
-- `POST /auth/register`: `{ "email": "...", "password": "...", "name": "..." }`
-- `POST /auth/login`: `{ "email": "...", "password": "..." }`
-
-### 2. Groups
-- `POST /groups`: `{ "name": "Tokyo Trip", "displayName": "Alice" }` -> Returns group with `invite_code`.
-- `POST /groups/join`: `{ "inviteCode": "TRIP26", "displayName": "Bob" }` -> Join group by 6-char code.
-- `GET /groups`: List all groups the user is a member of.
-- `GET /groups/:id`: Get group details and stats.
-- `GET /groups/:id/activity`: Activity audit trail.
-- `GET /groups/:id/analytics`: Spending analytics (category breakdown, per-member metrics, top merchants).
-
-### 3. Receipts & Gemini Vision
-- `POST /groups/:id/receipts`: Upload receipt photo (`multipart/form-data`, field: `image`).
-- `POST /receipts/:id/parse`: Run Gemini Vision OCR with PII redaction.
-- `GET /receipts/:id`: Get receipt, items, and shares.
-- `GET /receipts/:id/image-url`: Get 15-min expiring signed download URL.
-- `POST /receipts/:id/auto-split`:
-  ```json
-  { "mode": "EQUAL_ALL" }
-  ```
-- `PATCH /receipts/:receiptId/items/:itemId`: Update item price/name/quantity.
-- `POST /receipts/:receiptId/items/:itemId/shares`: Custom dollar splits.
-- `PATCH /receipts/:id`: Update receipt metadata (`paidBy`, `category`, `notes`, `merchantName`).
-- `DELETE /receipts/:id`: Delete receipt image and data, re-balances ledger.
-
-### 4. Settlements & Payments
-- `POST /receipts/:id/confirm`: Confirms receipt and triggers automatic settlement recomputation.
-- `GET /groups/:id/settlements`: Returns minimum-transaction settlement list.
-- `POST /groups/:id/settlements/payments`: `{ "toUser": "<uuid>", "amount": 25.00 }` -> Records payment and re-balances remaining debts.
+MIT License © [Mark Wilson](https://github.com/markwlsn)

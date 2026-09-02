@@ -204,7 +204,7 @@ async function parseReceipt(req, res, next) {
     try {
       const ai = getGeminiClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.6-flash',
         contents: [
           {
             role: 'user',
@@ -221,15 +221,28 @@ async function parseReceipt(req, res, next) {
             ],
           },
         ],
-        config: {
-          responseMimeType: 'application/json',
-        },
       });
 
-      const responseText = response.text ? response.text.trim() : '';
+      let responseText = '';
+      if (response.text) {
+        responseText = response.text.trim();
+      } else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+        responseText = response.candidates[0].content.parts[0].text.trim();
+      }
+
+      // Strip markdown code fences if model wrapped the JSON in backticks
+      responseText = responseText
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
+
       parsed = JSON.parse(responseText);
     } catch (aiErr) {
-      console.error('Gemini vision parsing error:', aiErr);
+      console.error('=== GEMINI VISION ERROR ===');
+      console.error('Message:', aiErr.message);
+      console.error('Stack:', aiErr.stack);
+      console.error('===========================');
       return res.status(422).json({
         error: 'Could not parse receipt image with AI - please try a clearer photo or enter items manually.',
         details: aiErr.message,
@@ -287,17 +300,29 @@ async function parseReceipt(req, res, next) {
       return res.status(400).json({ error: updateError.message });
     }
 
+    // Auto-update group currency if Gemini detected one from the receipt
+    let detectedCurrency = null;
+    if (parsed.currency_code && /^[A-Z]{3}$/.test(parsed.currency_code)) {
+      detectedCurrency = parsed.currency_code;
+      // Update the group's currency to match the receipt
+      await req.supabase
+        .from('groups')
+        .update({ currency: detectedCurrency })
+        .eq('id', receipt.group_id);
+    }
+
     await logActivity(req.supabase, {
       groupId: receipt.group_id,
       actorId: req.userId,
       actionType: 'RECEIPT_PARSED',
-      description: `AI parsed receipt for "${updatedReceipt.merchant_name || 'Receipt'}" ($${updatedReceipt.total_amount || 0})`,
-      metadata: { receiptId, itemCount: insertedItems.length },
+      description: `AI parsed receipt for "${updatedReceipt.merchant_name || 'Receipt'}" — ${detectedCurrency ? detectedCurrency + ' detected' : 'currency unknown'}`,
+      metadata: { receiptId, itemCount: insertedItems.length, detectedCurrency },
     });
 
     return res.json({
       receipt: updatedReceipt,
       items: insertedItems,
+      detectedCurrency,
     });
   } catch (err) {
     next(err);

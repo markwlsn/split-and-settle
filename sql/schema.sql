@@ -1,5 +1,5 @@
 -- =============================================================================
--- Split & Settle Full Database Schema & Row Level Security (RLS)
+-- SPLIT & SETTLE: COMPLETE MASTER DATABASE SCHEMA & ZERO-RECURSION RLS
 -- =============================================================================
 
 -- 1. GROUPS TABLE
@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS groups (
   created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS invite_code TEXT UNIQUE;
+ALTER TABLE groups ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD';
 
 -- 2. GROUP MEMBERS TABLE
 CREATE TABLE IF NOT EXISTS group_members (
@@ -39,6 +42,12 @@ CREATE TABLE IF NOT EXISTS receipts (
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'parsed', 'confirmed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'Other';
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS tax_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE receipts ADD COLUMN IF NOT EXISTS tip_amount NUMERIC(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE receipts ALTER COLUMN image_path DROP NOT NULL;
 
 -- 4. RECEIPT ITEMS TABLE
 CREATE TABLE IF NOT EXISTS receipt_items (
@@ -82,6 +91,50 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 );
 
 -- =============================================================================
+-- SECURITY DEFINER HELPER FUNCTIONS (Bypasses RLS to prevent recursion)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.is_group_member(lookup_group_id UUID, lookup_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = lookup_group_id AND user_id = lookup_user_id
+  );
+$$;
+
+-- Alias for backwards compatibility
+CREATE OR REPLACE FUNCTION public.is_member_of_group(lookup_group_id UUID, lookup_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.group_members
+    WHERE group_id = lookup_group_id AND user_id = lookup_user_id
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_group_creator(lookup_group_id UUID, lookup_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.groups
+    WHERE id = lookup_group_id AND created_by = lookup_user_id
+  );
+$$;
+
+-- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =============================================================================
 
@@ -93,138 +146,122 @@ ALTER TABLE item_shares ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 
--- GROUPS POLICIES
-CREATE POLICY "groups_select_member" ON groups FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = groups.id AND gm.user_id = auth.uid()
-  )
+-- 1. DROP ALL OLD POLICIES ON ALL TABLES
+DO $$
+DECLARE
+  pol record;
+BEGIN
+  FOR pol IN 
+    SELECT schemaname, tablename, policyname 
+    FROM pg_policies 
+    WHERE schemaname = 'public' 
+      AND tablename IN ('groups', 'group_members', 'receipts', 'receipt_items', 'item_shares', 'settlements', 'activity_logs')
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', pol.policyname, pol.schemaname, pol.tablename);
+  END LOOP;
+END $$;
+
+-- 2. GROUPS POLICIES
+CREATE POLICY "groups_select_policy" ON groups FOR SELECT USING (
+  created_by = auth.uid() OR public.is_group_member(id, auth.uid())
 );
 
-CREATE POLICY "groups_insert_own" ON groups FOR INSERT WITH CHECK (
-  auth.uid() = created_by
+CREATE POLICY "groups_insert_policy" ON groups FOR INSERT WITH CHECK (
+  created_by = auth.uid()
 );
 
-CREATE POLICY "groups_update_creator" ON groups FOR UPDATE USING (
-  auth.uid() = created_by
+CREATE POLICY "groups_update_policy" ON groups FOR UPDATE USING (
+  created_by = auth.uid()
 );
 
-CREATE POLICY "groups_delete_creator" ON groups FOR DELETE USING (
-  auth.uid() = created_by
+CREATE POLICY "groups_delete_policy" ON groups FOR DELETE USING (
+  created_by = auth.uid()
 );
 
--- GROUP MEMBERS POLICIES
-CREATE POLICY "members_select_same_group" ON group_members FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = group_members.group_id AND gm.user_id = auth.uid()
-  )
+-- 3. GROUP MEMBERS POLICIES
+CREATE POLICY "members_select_policy" ON group_members FOR SELECT USING (
+  user_id = auth.uid() OR public.is_group_member(group_id, auth.uid())
 );
 
-CREATE POLICY "members_insert_if_group_member_or_creator" ON group_members FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM groups g
-    WHERE g.id = group_id AND g.created_by = auth.uid()
-  )
-  OR EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = group_members.group_id AND gm.user_id = auth.uid()
-  )
+CREATE POLICY "members_insert_policy" ON group_members FOR INSERT WITH CHECK (
+  user_id = auth.uid() OR public.is_group_creator(group_id, auth.uid()) OR public.is_group_member(group_id, auth.uid())
 );
 
-CREATE POLICY "members_delete_own_or_creator" ON group_members FOR DELETE USING (
-  auth.uid() = user_id
-  OR EXISTS (
-    SELECT 1 FROM groups g
-    WHERE g.id = group_id AND g.created_by = auth.uid()
-  )
+CREATE POLICY "members_delete_policy" ON group_members FOR DELETE USING (
+  user_id = auth.uid() OR public.is_group_creator(group_id, auth.uid())
 );
 
--- RECEIPTS POLICIES
-CREATE POLICY "receipts_select_group_member" ON receipts FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = receipts.group_id AND gm.user_id = auth.uid()
-  )
+-- 4. RECEIPTS POLICIES
+CREATE POLICY "receipts_select_policy" ON receipts FOR SELECT USING (
+  public.is_group_member(group_id, auth.uid())
 );
 
-CREATE POLICY "receipts_insert_group_member" ON receipts FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = receipts.group_id AND gm.user_id = auth.uid()
-  )
+CREATE POLICY "receipts_insert_policy" ON receipts FOR INSERT WITH CHECK (
+  public.is_group_member(group_id, auth.uid())
 );
 
-CREATE POLICY "receipts_update_group_member" ON receipts FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = receipts.group_id AND gm.user_id = auth.uid()
-  )
+CREATE POLICY "receipts_update_policy" ON receipts FOR UPDATE USING (
+  public.is_group_member(group_id, auth.uid())
 );
 
-CREATE POLICY "receipts_delete_group_member" ON receipts FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = receipts.group_id AND gm.user_id = auth.uid()
-  )
+CREATE POLICY "receipts_delete_policy" ON receipts FOR DELETE USING (
+  public.is_group_member(group_id, auth.uid())
 );
 
--- RECEIPT ITEMS POLICIES
-CREATE POLICY "items_all_group_member" ON receipt_items FOR ALL USING (
+-- 5. RECEIPT ITEMS POLICIES
+CREATE POLICY "items_all_policy" ON receipt_items FOR ALL USING (
   EXISTS (
     SELECT 1 FROM receipts r
-    JOIN group_members gm ON gm.group_id = r.group_id
-    WHERE r.id = receipt_items.receipt_id AND gm.user_id = auth.uid()
+    WHERE r.id = receipt_items.receipt_id AND public.is_group_member(r.group_id, auth.uid())
   )
 );
 
--- ITEM SHARES POLICIES
-CREATE POLICY "shares_select_group_member" ON item_shares FOR SELECT USING (
+-- 6. ITEM SHARES POLICIES
+CREATE POLICY "shares_all_policy" ON item_shares FOR ALL USING (
   EXISTS (
     SELECT 1 FROM receipt_items ri
     JOIN receipts r ON r.id = ri.receipt_id
-    JOIN group_members gm ON gm.group_id = r.group_id
-    WHERE ri.id = item_shares.item_id AND gm.user_id = auth.uid()
+    WHERE ri.id = item_shares.item_id AND public.is_group_member(r.group_id, auth.uid())
   )
 );
 
-CREATE POLICY "shares_insert_group_member" ON item_shares FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM receipt_items ri
-    JOIN receipts r ON r.id = ri.receipt_id
-    JOIN group_members gm ON gm.group_id = r.group_id
-    WHERE ri.id = item_shares.item_id AND gm.user_id = auth.uid()
-  )
+-- 7. SETTLEMENTS POLICIES
+CREATE POLICY "settlements_all_policy" ON settlements FOR ALL USING (
+  public.is_group_member(group_id, auth.uid())
 );
 
-CREATE POLICY "shares_delete_group_member" ON item_shares FOR DELETE USING (
-  EXISTS (
-    SELECT 1 FROM receipt_items ri
-    JOIN receipts r ON r.id = ri.receipt_id
-    JOIN group_members gm ON gm.group_id = r.group_id
-    WHERE ri.id = item_shares.item_id AND gm.user_id = auth.uid()
-  )
+-- 8. ACTIVITY LOGS POLICIES
+CREATE POLICY "activity_select_policy" ON activity_logs FOR SELECT USING (
+  public.is_group_member(group_id, auth.uid())
 );
 
--- SETTLEMENTS POLICIES
-CREATE POLICY "settlements_all_group_member" ON settlements FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = settlements.group_id AND gm.user_id = auth.uid()
-  )
+CREATE POLICY "activity_insert_policy" ON activity_logs FOR INSERT WITH CHECK (
+  public.is_group_member(group_id, auth.uid())
 );
 
--- ACTIVITY LOGS POLICIES
-CREATE POLICY "activity_select_group_member" ON activity_logs FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = activity_logs.group_id AND gm.user_id = auth.uid()
-  )
-);
+-- 9. STORAGE BUCKET POLICIES
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'receipts_bucket_upload') THEN
+    CREATE POLICY "receipts_bucket_upload" ON storage.objects FOR INSERT WITH CHECK (
+      bucket_id = 'receipts' AND auth.role() = 'authenticated'
+    );
+  END IF;
 
-CREATE POLICY "activity_insert_group_member" ON activity_logs FOR INSERT WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM group_members gm
-    WHERE gm.group_id = activity_logs.group_id AND gm.user_id = auth.uid()
-  )
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'receipts_bucket_read') THEN
+    CREATE POLICY "receipts_bucket_read" ON storage.objects FOR SELECT USING (
+      bucket_id = 'receipts' AND auth.role() = 'authenticated'
+    );
+  END IF;
+END $$;
+
+-- =============================================================================
+-- PERFORMANCE INDEXES
+-- =============================================================================
+
+CREATE INDEX IF NOT EXISTS idx_group_members_group_user ON group_members(group_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_group_id ON receipts(group_id);
+CREATE INDEX IF NOT EXISTS idx_receipt_items_receipt_id ON receipt_items(receipt_id);
+CREATE INDEX IF NOT EXISTS idx_item_shares_item_id ON item_shares(item_id);
+CREATE INDEX IF NOT EXISTS idx_settlements_group_id ON settlements(group_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_group_id ON activity_logs(group_id);

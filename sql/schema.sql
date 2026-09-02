@@ -1,11 +1,12 @@
 -- =============================================================================
--- Split & Settle Database Schema & Row Level Security (RLS)
+-- Split & Settle Full Database Schema & Row Level Security (RLS)
 -- =============================================================================
 
 -- 1. GROUPS TABLE
 CREATE TABLE IF NOT EXISTS groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  invite_code TEXT UNIQUE,
   created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -29,6 +30,10 @@ CREATE TABLE IF NOT EXISTS receipts (
   image_path TEXT NOT NULL,
   merchant_name TEXT,
   total_amount NUMERIC(10,2),
+  tax_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  tip_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+  category TEXT NOT NULL DEFAULT 'Other',
+  notes TEXT,
   receipt_date DATE,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'parsed', 'confirmed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -64,6 +69,17 @@ CREATE TABLE IF NOT EXISTS settlements (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 7. ACTIVITY LOGS TABLE
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  actor_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- =============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =============================================================================
@@ -74,6 +90,7 @@ ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE receipt_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE item_shares ENABLE ROW LEVEL SECURITY;
 ALTER TABLE settlements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 
 -- GROUPS POLICIES
 CREATE POLICY "groups_select_member" ON groups FOR SELECT USING (
@@ -128,6 +145,13 @@ CREATE POLICY "receipts_update_group_member" ON receipts FOR UPDATE USING (
   )
 );
 
+CREATE POLICY "receipts_delete_group_member" ON receipts FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM group_members gm
+    WHERE gm.group_id = receipts.group_id AND gm.user_id = auth.uid()
+  )
+);
+
 -- RECEIPT ITEMS POLICIES
 CREATE POLICY "items_all_group_member" ON receipt_items FOR ALL USING (
   EXISTS (
@@ -173,17 +197,17 @@ CREATE POLICY "settlements_all_group_member" ON settlements FOR ALL USING (
   )
 );
 
--- =============================================================================
--- STORAGE BUCKET POLICIES (for bucket named 'receipts')
--- =============================================================================
--- Run these in Supabase SQL editor after creating private bucket 'receipts':
+-- ACTIVITY LOGS POLICIES
+CREATE POLICY "activity_select_group_member" ON activity_logs FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM group_members gm
+    WHERE gm.group_id = activity_logs.group_id AND gm.user_id = auth.uid()
+  )
+);
 
--- INSERT policy for Storage:
--- CREATE POLICY "receipts_bucket_upload" ON storage.objects FOR INSERT WITH CHECK (
---   bucket_id = 'receipts' AND auth.role() = 'authenticated'
--- );
-
--- SELECT policy for Storage:
--- CREATE POLICY "receipts_bucket_read" ON storage.objects FOR SELECT USING (
---   bucket_id = 'receipts' AND auth.role() = 'authenticated'
--- );
+CREATE POLICY "activity_insert_group_member" ON activity_logs FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM group_members gm
+    WHERE gm.group_id = activity_logs.group_id AND gm.user_id = auth.uid()
+  )
+);

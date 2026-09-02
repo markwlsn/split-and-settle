@@ -1,4 +1,5 @@
 const { computeBalances, simplifySettlements } = require('../utils/settlement');
+const { logActivity } = require('../lib/activityLogger');
 
 async function recomputeSettlements(supabase, groupId) {
   // 1. Fetch confirmed receipts
@@ -119,6 +120,14 @@ async function confirmReceipt(req, res, next) {
 
     await recomputeSettlements(req.supabase, receipt.group_id);
 
+    await logActivity(req.supabase, {
+      groupId: receipt.group_id,
+      actorId: req.userId,
+      actionType: 'RECEIPT_CONFIRMED',
+      description: `Receipt for "${receipt.merchant_name || 'Receipt'}" confirmed. Group settlements recalculated.`,
+      metadata: { receiptId },
+    });
+
     return res.json({
       receipt,
       message: 'Receipt confirmed and group settlements recalculated successfully',
@@ -159,13 +168,15 @@ async function recordPayment(req, res, next) {
     const { id: groupId } = req.params;
     const { toUser, amount } = req.body;
 
+    const paymentAmount = Math.round(Number(amount) * 100) / 100;
+
     const { data: payment, error } = await req.supabase
       .from('settlements')
       .insert({
         group_id: groupId,
         from_user: req.userId,
         to_user: toUser,
-        amount: Math.round(Number(amount) * 100) / 100,
+        amount: paymentAmount,
         type: 'payment',
         settled: true,
       })
@@ -177,6 +188,14 @@ async function recordPayment(req, res, next) {
     }
 
     await recomputeSettlements(req.supabase, groupId);
+
+    await logActivity(req.supabase, {
+      groupId,
+      actorId: req.userId,
+      actionType: 'PAYMENT_RECORDED',
+      description: `Payment of $${paymentAmount.toFixed(2)} recorded`,
+      metadata: { toUser, amount: paymentAmount },
+    });
 
     return res.status(201).json({
       payment,

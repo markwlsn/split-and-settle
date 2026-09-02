@@ -1,13 +1,22 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
-// Global middlewares
+// Security HTTP headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+
+// CORS configuration
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+
+// Body parser with payload size protection
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
 // Rate limiting on authentication endpoints to prevent brute-force
 const authLimiter = rateLimit({

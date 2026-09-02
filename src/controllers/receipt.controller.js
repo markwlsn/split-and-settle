@@ -2,6 +2,9 @@ const { randomUUID } = require('crypto');
 const path = require('path');
 const { getGeminiClient } = require('../lib/geminiClient');
 const { RECEIPT_PARSE_PROMPT } = require('../utils/receiptPrompt');
+const { logActivity } = require('../lib/activityLogger');
+const { calculateEqualShares, calculateProportionalTaxAndTip } = require('../utils/splitCalculator');
+const { recomputeSettlements } = require('./settlement.controller');
 
 function getMimeType(filePath, fallbackType) {
   if (fallbackType && fallbackType.startsWith('image/')) {
@@ -31,6 +34,18 @@ async function uploadReceipt(req, res, next) {
       return res.status(400).json({ error: 'Receipt image file is required' });
     }
 
+    // Verify group membership first
+    const { data: membership, error: memberCheckError } = await req.supabase
+      .from('group_members')
+      .select('display_name')
+      .eq('group_id', groupId)
+      .eq('user_id', req.userId)
+      .single();
+
+    if (memberCheckError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+
     const fileExt = path.extname(req.file.originalname) || '.jpg';
     const cleanFileName = `${randomUUID()}${fileExt}`;
     const storagePath = `${groupId}/${cleanFileName}`;
@@ -54,6 +69,7 @@ async function uploadReceipt(req, res, next) {
         paid_by: req.userId,
         image_path: storagePath,
         status: 'pending',
+        category: 'Other',
       })
       .select()
       .single();
@@ -61,6 +77,14 @@ async function uploadReceipt(req, res, next) {
     if (dbError) {
       return res.status(400).json({ error: dbError.message });
     }
+
+    await logActivity(req.supabase, {
+      groupId,
+      actorId: req.userId,
+      actionType: 'RECEIPT_UPLOADED',
+      description: `${membership.display_name} uploaded a receipt image`,
+      metadata: { receiptId: receipt.id },
+    });
 
     return res.status(201).json(receipt);
   } catch (err) {
@@ -171,6 +195,9 @@ async function parseReceipt(req, res, next) {
         merchant_name: parsed.merchant_name || null,
         receipt_date: validReceiptDate,
         total_amount: parsed.total_amount ? parseFloat(parsed.total_amount) : null,
+        tax_amount: parsed.tax_amount ? Math.max(0, parseFloat(parsed.tax_amount)) : 0,
+        tip_amount: parsed.tip_amount ? Math.max(0, parseFloat(parsed.tip_amount)) : 0,
+        category: parsed.category || 'Other',
       })
       .eq('id', receiptId)
       .select()
@@ -179,6 +206,14 @@ async function parseReceipt(req, res, next) {
     if (updateError) {
       return res.status(400).json({ error: updateError.message });
     }
+
+    await logActivity(req.supabase, {
+      groupId: receipt.group_id,
+      actorId: req.userId,
+      actionType: 'RECEIPT_PARSED',
+      description: `AI parsed receipt for "${updatedReceipt.merchant_name || 'Receipt'}" ($${updatedReceipt.total_amount || 0})`,
+      metadata: { receiptId, itemCount: insertedItems.length },
+    });
 
     return res.json({
       receipt: updatedReceipt,
@@ -203,6 +238,221 @@ async function getReceipt(req, res, next) {
     }
 
     return res.json(receipt);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getReceiptImageUrl(req, res, next) {
+  try {
+    const { id: receiptId } = req.params;
+
+    const { data: receipt, error: receiptError } = await req.supabase
+      .from('receipts')
+      .select('image_path')
+      .eq('id', receiptId)
+      .single();
+
+    if (receiptError || !receipt) {
+      return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    // Generate a temporary signed URL valid for 15 minutes (900 seconds)
+    const { data, error: signError } = await req.supabase.storage
+      .from('receipts')
+      .createSignedUrl(receipt.image_path, 900);
+
+    if (signError) {
+      return res.status(400).json({ error: signError.message });
+    }
+
+    return res.json({
+      signedUrl: data.signedUrl,
+      expiresInSeconds: 900,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateReceipt(req, res, next) {
+  try {
+    const { id: receiptId } = req.params;
+    const {
+      merchantName,
+      receiptDate,
+      totalAmount,
+      taxAmount,
+      tipAmount,
+      category,
+      notes,
+      paidBy,
+    } = req.body;
+
+    const updates = {};
+    if (merchantName !== undefined) updates.merchant_name = merchantName;
+    if (receiptDate !== undefined) updates.receipt_date = receiptDate;
+    if (totalAmount !== undefined) updates.total_amount = totalAmount;
+    if (taxAmount !== undefined) updates.tax_amount = taxAmount;
+    if (tipAmount !== undefined) updates.tip_amount = tipAmount;
+    if (category !== undefined) updates.category = category;
+    if (notes !== undefined) updates.notes = notes;
+    if (paidBy !== undefined) updates.paid_by = paidBy;
+
+    const { data: updated, error } = await req.supabase
+      .from('receipts')
+      .update(updates)
+      .eq('id', receiptId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // If paid_by changed on a confirmed receipt, recompute settlements
+    if (paidBy !== undefined && updated.status === 'confirmed') {
+      await recomputeSettlements(req.supabase, updated.group_id);
+    }
+
+    await logActivity(req.supabase, {
+      groupId: updated.group_id,
+      actorId: req.userId,
+      actionType: 'RECEIPT_UPDATED',
+      description: `Receipt details updated for "${updated.merchant_name || 'Receipt'}"`,
+      metadata: { receiptId, updates },
+    });
+
+    return res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteReceipt(req, res, next) {
+  try {
+    const { id: receiptId } = req.params;
+
+    const { data: receipt, error: findError } = await req.supabase
+      .from('receipts')
+      .select('*')
+      .eq('id', receiptId)
+      .single();
+
+    if (findError || !receipt) {
+      return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    // Remove file from storage
+    await req.supabase.storage.from('receipts').remove([receipt.image_path]);
+
+    // Delete database row
+    const { error: deleteError } = await req.supabase
+      .from('receipts')
+      .delete()
+      .eq('id', receiptId);
+
+    if (deleteError) {
+      return res.status(400).json({ error: deleteError.message });
+    }
+
+    // If receipt was confirmed, recalculate group balances
+    if (receipt.status === 'confirmed') {
+      await recomputeSettlements(req.supabase, receipt.group_id);
+    }
+
+    await logActivity(req.supabase, {
+      groupId: receipt.group_id,
+      actorId: req.userId,
+      actionType: 'RECEIPT_DELETED',
+      description: `Receipt for "${receipt.merchant_name || 'Receipt'}" was deleted`,
+      metadata: { receiptId },
+    });
+
+    return res.json({ message: 'Receipt deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function autoSplitReceipt(req, res, next) {
+  try {
+    const { id: receiptId } = req.params;
+    const { mode, userIds } = req.body;
+
+    const { data: receipt, error: receiptError } = await req.supabase
+      .from('receipts')
+      .select('*, receipt_items(*)')
+      .eq('id', receiptId)
+      .single();
+
+    if (receiptError || !receipt) {
+      return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    const items = receipt.receipt_items || [];
+    if (items.length === 0) {
+      return res.status(400).json({ error: 'Receipt has no items to split. Parse items first.' });
+    }
+
+    // Determine target members
+    let targetUserIds = userIds;
+    if (mode === 'EQUAL_ALL' || !targetUserIds || targetUserIds.length === 0) {
+      const { data: members } = await req.supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', receipt.group_id);
+      targetUserIds = (members || []).map(m => m.user_id);
+    }
+
+    if (targetUserIds.length === 0) {
+      return res.status(400).json({ error: 'No group members available to split with' });
+    }
+
+    const itemIds = items.map(i => i.id);
+
+    // Delete existing shares for all items in this receipt
+    await req.supabase.from('item_shares').delete().in('item_id', itemIds);
+
+    const allSharesToInsert = [];
+
+    if (mode === 'EQUAL_ALL' || mode === 'EQUAL_SELECTED') {
+      // Split each item equally among target members
+      items.forEach(item => {
+        const itemPrice = parseFloat(item.price);
+        const shares = calculateEqualShares(itemPrice, targetUserIds);
+        shares.forEach(s => {
+          allSharesToInsert.push({
+            item_id: item.id,
+            user_id: s.userId,
+            share_amount: s.shareAmount,
+          });
+        });
+      });
+    }
+
+    const { data: insertedShares, error: insertError } = await req.supabase
+      .from('item_shares')
+      .insert(allSharesToInsert)
+      .select();
+
+    if (insertError) {
+      return res.status(400).json({ error: insertError.message });
+    }
+
+    await logActivity(req.supabase, {
+      groupId: receipt.group_id,
+      actorId: req.userId,
+      actionType: 'AUTO_SPLIT_APPLIED',
+      description: `Auto-split (${mode}) applied across ${targetUserIds.length} members`,
+      metadata: { receiptId, mode, memberCount: targetUserIds.length },
+    });
+
+    return res.json({
+      message: `Successfully split ${items.length} items across ${targetUserIds.length} members`,
+      sharesCount: insertedShares.length,
+      shares: insertedShares,
+    });
   } catch (err) {
     next(err);
   }
@@ -293,6 +543,10 @@ module.exports = {
   uploadReceipt,
   parseReceipt,
   getReceipt,
+  getReceiptImageUrl,
+  updateReceipt,
+  deleteReceipt,
+  autoSplitReceipt,
   updateItem,
   setItemShares,
 };

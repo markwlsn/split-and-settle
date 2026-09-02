@@ -3,11 +3,20 @@ const router = express.Router();
 const multer = require('multer');
 const { requireAuth } = require('../middleware/auth.middleware');
 const { validate } = require('../middleware/validate.middleware');
-const { updateItemSchema, sharesSchema } = require('../utils/schemas');
+const {
+  updateItemSchema,
+  updateReceiptSchema,
+  sharesSchema,
+  autoSplitSchema,
+} = require('../utils/schemas');
 const {
   uploadReceipt,
   parseReceipt,
   getReceipt,
+  getReceiptImageUrl,
+  updateReceipt,
+  deleteReceipt,
+  autoSplitReceipt,
   updateItem,
   setItemShares,
 } = require('../controllers/receipt.controller');
@@ -31,13 +40,25 @@ router.post('/groups/:id/receipts', requireAuth, upload.single('image'), uploadR
 // Parse receipt with Gemini Vision
 router.post('/receipts/:id/parse', requireAuth, parseReceipt);
 
-// Get receipt details
+// Get receipt details with items & shares
 router.get('/receipts/:id', requireAuth, getReceipt);
 
-// Update receipt item
+// Get short-lived signed image URL
+router.get('/receipts/:id/image-url', requireAuth, getReceiptImageUrl);
+
+// Update receipt metadata (payer, merchant, date, category, tax/tip, notes)
+router.patch('/receipts/:id', requireAuth, validate(updateReceiptSchema), updateReceipt);
+
+// Delete receipt and image
+router.delete('/receipts/:id', requireAuth, deleteReceipt);
+
+// Smart auto-split across members
+router.post('/receipts/:id/auto-split', requireAuth, validate(autoSplitSchema), autoSplitReceipt);
+
+// Update individual receipt item
 router.patch('/receipts/:receiptId/items/:itemId', requireAuth, validate(updateItemSchema), updateItem);
 
-// Set item shares
+// Set custom item shares
 router.post('/receipts/:receiptId/items/:itemId/shares', requireAuth, validate(sharesSchema), setItemShares);
 
 // Confirm receipt and recompute settlements

@@ -16,6 +16,11 @@ const groupSchema = z.object({
   displayName: z.string().min(1).optional(),
 });
 
+const joinGroupSchema = z.object({
+  inviteCode: z.string().min(4, { message: 'Invite code must be at least 4 characters' }).toUpperCase(),
+  displayName: z.string().min(1, { message: 'Display name is required' }),
+});
+
 const memberSchema = z.object({
   userId: z.string().uuid({ message: 'Valid user UUID is required' }),
   displayName: z.string().min(1, { message: 'Display name is required' }),
@@ -29,6 +34,28 @@ const updateItemSchema = z.object({
   message: 'At least one field (name, price, quantity) must be provided for update',
 });
 
+const updateReceiptSchema = z.object({
+  merchantName: z.string().optional(),
+  receiptDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date must be in YYYY-MM-DD format' }).nullable().optional(),
+  totalAmount: z.number().positive().optional(),
+  taxAmount: z.number().nonnegative().optional(),
+  tipAmount: z.number().nonnegative().optional(),
+  category: z.enum([
+    'Food & Dining',
+    'Groceries',
+    'Transport',
+    'Entertainment',
+    'Lodging',
+    'Utilities',
+    'Shopping',
+    'Other',
+  ]).optional(),
+  notes: z.string().optional(),
+  paidBy: z.string().uuid().optional(),
+}).refine(data => Object.keys(data).length > 0, {
+  message: 'At least one field must be provided for receipt update',
+});
+
 const sharesSchema = z.object({
   shares: z.array(
     z.object({
@@ -36,6 +63,13 @@ const sharesSchema = z.object({
       shareAmount: z.number().positive({ message: 'Share amount must be a positive number' }),
     })
   ).min(1, { message: 'At least one share entry is required' }),
+});
+
+const autoSplitSchema = z.object({
+  mode: z.enum(['EQUAL_ALL', 'EQUAL_SELECTED', 'PROPORTIONAL_TAX_TIP'], {
+    message: 'Mode must be EQUAL_ALL, EQUAL_SELECTED, or PROPORTIONAL_TAX_TIP',
+  }),
+  userIds: z.array(z.string().uuid({ message: 'Invalid user UUID' })).optional(),
 });
 
 const paymentSchema = z.object({
@@ -47,8 +81,11 @@ module.exports = {
   registerSchema,
   loginSchema,
   groupSchema,
+  joinGroupSchema,
   memberSchema,
   updateItemSchema,
+  updateReceiptSchema,
   sharesSchema,
+  autoSplitSchema,
   paymentSchema,
 };

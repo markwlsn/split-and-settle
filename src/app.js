@@ -2,9 +2,24 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { randomUUID } = require('crypto');
 const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
+
+// Request ID and response timing middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  req.id = req.headers['x-request-id'] || randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    res.setHeader('X-Response-Time', `${duration}ms`);
+  });
+
+  next();
+});
 
 // Security HTTP headers
 app.use(helmet({
@@ -29,7 +44,12 @@ const authLimiter = rateLimit({
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    service: 'split-and-settle-api',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
 });
 
 // Route registration

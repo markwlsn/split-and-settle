@@ -81,7 +81,7 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="create-group-title">
       <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between pb-4 border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -89,7 +89,7 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-100">Create New Group</h3>
+              <h3 id="create-group-title" className="font-bold text-slate-100">Create New Group</h3>
               <p className="text-xs text-slate-400">Share receipts & split costs with friends</p>
             </div>
           </div>

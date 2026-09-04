@@ -1,12 +1,21 @@
 /**
- * Utility functions for smart auto-splitting and proportional tax/tip allocations.
+ * Split & Settle - Split Calculator & Rounding Reconciliation Utilities
+ * 
+ * Provides penny-exact equal division, proportional tax/tip allocations,
+ * and unambiguous group invite code generation.
  */
 
 /**
  * Splits an amount equally among a list of user IDs, distributing fractional penny remainders.
- * @param {number} totalAmount 
- * @param {string[]} userIds 
- * @returns {Array<{ userId: string, shareAmount: number }>}
+ * Guarantees that sum(shares) === totalAmount down to exact $0.00 precision.
+ * 
+ * @param {number} totalAmount The total dollar or monetary amount to divide
+ * @param {string[]} userIds List of user IDs receiving equal shares
+ * @returns {Array<{ userId: string, shareAmount: number }>} Distributed equal shares with penny reconciliation
+ * 
+ * @example
+ * calculateEqualShares(10.00, ['u1', 'u2', 'u3'])
+ * // => [{ userId: 'u1', shareAmount: 3.34 }, { userId: 'u2', shareAmount: 3.33 }, { userId: 'u3', shareAmount: 3.33 }]
  */
 function calculateEqualShares(totalAmount, userIds) {
   if (!userIds || userIds.length === 0) return [];
@@ -30,13 +39,15 @@ function calculateEqualShares(totalAmount, userIds) {
 
 /**
  * Proportionally distributes tax and tip amounts based on each user's itemized subtotal spend.
+ * Last member receives penny reconciliation adjustments to ensure exact sum match.
+ * 
  * @param {Object.<string, number>} userSubtotals Map of userId -> dollar subtotal spent on items
  * @param {number} taxAmount Total receipt tax
  * @param {number} tipAmount Total receipt tip
- * @returns {Object.<string, { taxShare: number, tipShare: number, totalExtra: number }>}
+ * @returns {Object.<string, { taxShare: number, tipShare: number, totalExtra: number }>} Proportional extra charges
  */
 function calculateProportionalTaxAndTip(userSubtotals, taxAmount = 0, tipAmount = 0) {
-  const users = Object.keys(userSubtotals);
+  const users = Object.keys(userSubtotals || {});
   if (users.length === 0) return {};
 
   const totalSubtotal = Object.values(userSubtotals).reduce((sum, val) => sum + Number(val), 0);
@@ -91,7 +102,10 @@ function calculateProportionalTaxAndTip(userSubtotals, taxAmount = 0, tipAmount 
 }
 
 /**
- * Generates a readable 6-character group invite code (e.g. 'TRIP26').
+ * Generates an unambiguous 6-character alphanumeric group invite code (e.g. 'TRIP26').
+ * Excludes easily confused characters (0, O, 1, I).
+ * 
+ * @returns {string} 6-character uppercase invite code
  */
 function generateInviteCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

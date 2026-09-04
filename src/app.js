@@ -7,17 +7,10 @@ const { errorHandler } = require('./middleware/error.middleware');
 
 const app = express();
 
-// Request ID and response timing middleware
+// Request ID tracking middleware
 app.use((req, res, next) => {
-  const start = Date.now();
   req.id = req.headers['x-request-id'] || randomUUID();
   res.setHeader('X-Request-Id', req.id);
-
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    res.setHeader('X-Response-Time', `${duration}ms`);
-  });
-
   next();
 });
 

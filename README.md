@@ -122,9 +122,31 @@ npm run dev
 
 ---
 
+## 📡 API Reference
+
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|:---:|
+| `GET` | `/health` | Service health status & uptime | No |
+| `POST` | `/auth/register` | Register a new user | No |
+| `POST` | `/auth/login` | Sign in user & receive JWT | No |
+| `POST` | `/groups` | Create a new group | Yes |
+| `GET` | `/groups` | List user's groups | Yes |
+| `GET` | `/groups/:id` | Get group details & receipt ledger | Yes |
+| `POST` | `/groups/join` | Join group via 6-char invite code | Yes |
+| `POST` | `/groups/:id/receipts` | Upload receipt photo for scanning | Yes |
+| `POST` | `/groups/:id/expenses` | Create manual non-photo expense | Yes |
+| `POST` | `/receipts/:id/parse` | Trigger Gemini AI receipt parsing | Yes |
+| `POST` | `/receipts/:id/auto-split` | Auto-split receipt items across members | Yes |
+| `POST` | `/receipts/:id/confirm` | Confirm receipt & recompute debts | Yes |
+| `GET` | `/groups/:id/settlements` | Get minimum-transaction settlements | Yes |
+| `POST` | `/groups/:id/settlements/payments` | Record peer payment & clear balance | Yes |
+| `GET` | `/groups/:id/analytics` | Spending breakdown & member metrics | Yes |
+
+---
+
 ## 🧪 Running Tests
 
-The backend includes 42 unit and integration tests verifying settlement algorithms, penny reconciliation, and validation guards:
+The backend includes 44 unit and integration tests verifying settlement algorithms, penny reconciliation, and validation guards:
 
 ```bash
 npm test
@@ -135,3 +157,4 @@ npm test
 ## 📜 License
 
 MIT License © [Mark Wilson](https://github.com/markwlsn)
+

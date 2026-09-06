@@ -36,6 +36,18 @@ describe('API Smoke & Route Tests', () => {
     expect(res.body).toHaveProperty('error');
   });
 
+  test('registerSchema validates input with optional phone number', () => {
+    const { registerSchema } = require('../src/utils/schemas');
+    const result = registerSchema.safeParse({
+      email: 'alex@example.com',
+      password: 'password123',
+      name: 'Alex Smith',
+      phone: '+1 (555) 234-5678',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data.phone).toBe('+1 (555) 234-5678');
+  });
+
   test('Undefined route returns 404', async () => {
     const res = await request(app).get('/api/unknown/endpoint');
     expect(res.status).toBe(404);

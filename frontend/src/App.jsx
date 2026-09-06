@@ -15,8 +15,8 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+      <div className="flex min-h-screen items-center justify-center bg-black text-neutral-400">
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
       </div>
     );
   }
@@ -26,7 +26,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500/20 selection:text-emerald-400">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black">
       <Navbar
         onNavigateHome={() => {
           setSelectedReceiptId(null);

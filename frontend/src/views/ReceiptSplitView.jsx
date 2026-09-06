@@ -2,31 +2,27 @@ import React, { useState, useEffect } from 'react';
 import {
   ArrowLeft,
   Sparkles,
-  Receipt,
-  Users,
-  Check,
-  CheckCircle2,
-  Trash2,
-  Plus,
-  Edit2,
-  Image as ImageIcon,
-  ExternalLink,
   Layers,
-  DollarSign,
-  Calendar,
-  Tag,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  Clock,
   Loader2,
+  ImageIcon,
   AlertCircle,
+  ExternalLink,
   Copy,
+  Check,
+  Tag,
+  Calendar,
   UserPlus,
 } from 'lucide-react';
 import { api } from '../services/api';
-import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { formatMoney, getCurrencySymbol } from '../utils/currency';
+import ConfirmModal from '../components/ConfirmModal';
 
-export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, currency: initialCurrency = 'USD' }) {
-  const { user } = useAuth();
+export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, onConfirmed }) {
   const { showToast } = useToast();
   const [receipt, setReceipt] = useState(null);
   const [group, setGroup] = useState(null);
@@ -36,34 +32,31 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
   const [confirming, setConfirming] = useState(false);
   const [imageUrl, setImageUrl] = useState(null);
   const [showImage, setShowImage] = useState(false);
-  const [error, setError] = useState('');
-  const [copiedCode, setCopiedCode] = useState(false);
-
-  // Add Item Inline State
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
-  const [newItemQty, setNewItemQty] = useState('1');
+  const [newItemQty, setNewItemQty] = useState(1);
+  const [error, setError] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  const currency = group?.currency || initialCurrency || 'USD';
-  const symbol = getCurrencySymbol(currency);
+  // Custom Deletion Modals
+  const [showDeleteReceiptModal, setShowDeleteReceiptModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadReceiptData = async () => {
     try {
-      setLoading(true);
       setError('');
-      const data = await api.getReceipt(receiptId);
+      const data = await api.getReceiptDetails(receiptId);
       setReceipt(data);
 
-      const [groupData, membersList] = await Promise.all([
-        api.getGroupDetails(data.group_id),
-        api.listMembers(data.group_id),
-      ]);
-
-      setGroup(groupData);
-      setMembers(membersList || []);
+      if (data.group_id) {
+        const groupData = await api.getGroupDetails(data.group_id);
+        setGroup(groupData.group);
+        setMembers(groupData.members || []);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to load receipt');
+      setError(err.message || 'Failed to load receipt details');
     } finally {
       setLoading(false);
     }
@@ -81,22 +74,14 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleParse = async () => {
+  const handleParseReceipt = async () => {
     setParsing(true);
     setError('');
     try {
       const res = await api.parseReceipt(receiptId);
-      setReceipt((prev) => ({
-        ...prev,
-        ...res.receipt,
-        receipt_items: res.items.map((i) => ({ ...i, item_shares: [] })),
-      }));
-
-      if (res.detectedCurrency) {
-        showToast(
-          `✅ Gemini detected ${res.detectedCurrency} currency — group currency updated automatically!`,
-          'success'
-        );
+      await loadReceiptData();
+      if (res.detectedCurrency && res.detectedCurrency !== currency) {
+        showToast(`Gemini detected currency: ${res.detectedCurrency}! Group updated.`, 'success');
         if (group) setGroup({ ...group, currency: res.detectedCurrency });
       } else {
         showToast('Receipt scanned successfully with Gemini Vision!', 'success');
@@ -158,63 +143,60 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
     const count = nextUserIds.length;
     const baseAmount = Math.round((itemPrice / count) * 100) / 100;
 
-    let remainder = Math.round((itemPrice - baseAmount * count) * 100) / 100;
-    const payloadShares = nextUserIds.map((uId, idx) => {
-      let share = baseAmount;
-      if (remainder > 0 && idx === 0) {
-        share = Math.round((share + remainder) * 100) / 100;
-      }
-      return {
-        userId: uId,
-        shareAmount: share,
-      };
-    });
+    const sharesPayload = nextUserIds.map((userId) => ({
+      userId,
+      shareAmount: baseAmount,
+    }));
 
     try {
-      await api.setItemShares(receiptId, item.id, payloadShares);
+      await api.updateItemShares(receiptId, item.id, sharesPayload);
       await loadReceiptData();
     } catch (err) {
-      showToast(err.message || 'Failed to update share', 'error');
+      showToast(err.message || 'Failed to update item assignment', 'error');
     }
   };
 
   const handleAddItem = async (e) => {
     e.preventDefault();
-    const p = parseFloat(newItemPrice);
-    if (!newItemName.trim() || isNaN(p) || p <= 0) {
-      showToast('Enter valid item name and price', 'error');
-      return;
-    }
+    if (!newItemName.trim() || !newItemPrice) return;
 
     try {
       await api.addItem(receiptId, {
         name: newItemName.trim(),
-        price: p,
+        price: parseFloat(newItemPrice),
         quantity: parseInt(newItemQty, 10) || 1,
       });
-      showToast(`Added "${newItemName}"`, 'success');
       setNewItemName('');
       setNewItemPrice('');
-      setNewItemQty('1');
+      setNewItemQty(1);
       setIsAddingItem(false);
+      showToast('Item added', 'success');
       await loadReceiptData();
     } catch (err) {
       showToast(err.message || 'Failed to add item', 'error');
     }
   };
 
-  const handleDeleteItem = async (itemId, itemName) => {
-    if (!window.confirm(`Delete item "${itemName}"?`)) return;
+  const confirmDeleteItem = async () => {
+    if (!itemToDelete) return;
+    setDeleting(true);
     try {
-      await api.deleteItem(receiptId, itemId);
-      showToast(`Deleted "${itemName}"`, 'info');
+      await api.deleteItem(receiptId, itemToDelete.id);
+      showToast(`Deleted "${itemToDelete.name}"`, 'info');
+      setItemToDelete(null);
       await loadReceiptData();
     } catch (err) {
       showToast(err.message || 'Failed to delete item', 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
   const handleConfirm = async () => {
+    if (members.length <= 1) {
+      showToast('Splitting requires 2 or more group members.', 'info');
+      return;
+    }
     setConfirming(true);
     setError('');
     try {
@@ -232,21 +214,24 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
     }
   };
 
-  const handleDeleteReceipt = async () => {
-    if (!window.confirm('Permanently delete this receipt and re-balance debts?')) return;
+  const confirmDeleteReceipt = async () => {
+    setDeleting(true);
     try {
       await api.deleteReceipt(receiptId);
       showToast('Receipt deleted.', 'info');
+      setShowDeleteReceiptModal(false);
       onBack();
     } catch (err) {
       showToast(err.message || 'Failed to delete receipt', 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-slate-500">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
+      <div className="flex flex-col items-center justify-center py-24 text-neutral-500">
+        <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
         <p className="text-xs font-medium">Loading receipt inspector...</p>
       </div>
     );
@@ -262,14 +247,15 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
 
   const itemsSum = items.reduce((acc, i) => acc + (parseFloat(i.price) || 0) * (i.quantity || 1), 0);
   const totalAmount = receipt.total_amount || itemsSum;
+  const symbol = getCurrencySymbol(currency);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 animate-fadeIn">
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 animate-fadeIn selection:bg-white selection:text-black">
       {/* Top Bar */}
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 transition"
+          className="flex items-center gap-2 rounded-xl border border-neutral-800 bg-neutral-900/60 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:bg-neutral-800 hover:text-white transition"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Group</span>
@@ -280,27 +266,27 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
             <button
               onClick={handleCopyInvite}
               title="Copy group invite code"
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-mono font-bold text-slate-300 hover:border-emerald-500/30 hover:text-emerald-400 transition"
+              className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs font-mono font-bold text-neutral-300 hover:border-neutral-600 hover:text-white transition"
             >
-              <span className="text-slate-500 font-sans text-[11px]">Invite:</span>
-              <span className="text-emerald-400">{group.invite_code}</span>
-              {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              <span className="text-neutral-500 font-sans text-[11px]">Invite:</span>
+              <span className="text-white">{group.invite_code}</span>
+              {copiedCode ? <Check className="h-3.5 w-3.5 text-white" /> : <Copy className="h-3.5 w-3.5" />}
             </button>
           )}
 
           {hasImage && (
             <button
               onClick={handleFetchImageUrl}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-slate-700 transition"
+              className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:border-neutral-600 hover:text-white transition"
             >
-              <ImageIcon className="h-3.5 w-3.5 text-emerald-400" />
+              <ImageIcon className="h-3.5 w-3.5 text-neutral-400" />
               <span>{showImage ? 'Hide Photo' : 'View Photo'}</span>
             </button>
           )}
 
           {!isConfirmed && (
             <button
-              onClick={handleDeleteReceipt}
+              onClick={() => setShowDeleteReceiptModal(true)}
               title="Delete receipt"
               className="flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/20 transition"
             >
@@ -319,20 +305,20 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
 
       {/* Image Preview Drawer */}
       {showImage && imageUrl && (
-        <div className="mb-6 overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 p-4 shadow-2xl animate-fadeIn">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80 mb-3">
-            <span className="text-xs font-semibold text-slate-400">Receipt Photo (15-min Expiring Token)</span>
+        <div className="mb-6 overflow-hidden rounded-3xl border border-neutral-800 bg-neutral-950 p-4 shadow-2xl animate-fadeIn">
+          <div className="flex items-center justify-between pb-3 border-b border-neutral-800 mb-3">
+            <span className="text-xs font-semibold text-neutral-400">Receipt Photo</span>
             <a
               href={imageUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1 text-[11px] text-emerald-400 hover:underline"
+              className="flex items-center gap-1 text-[11px] text-white hover:underline"
             >
               <span>Open original</span>
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
-          <div className="flex justify-center bg-slate-900/40 rounded-2xl p-4">
+          <div className="flex justify-center bg-neutral-900/50 rounded-2xl p-4">
             <img
               src={imageUrl}
               alt="Receipt"
@@ -344,21 +330,21 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
 
       {/* Solo Member Invite Banner */}
       {isSoloMember && !isConfirmed && (
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-500/30 bg-sky-950/20 p-4 backdrop-blur-sm">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-white/10 bg-neutral-900/60 p-4 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
-              <UserPlus className="h-4 w-4" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white border border-white/15 shrink-0">
+              <UserPlus className="h-4 w-4 stroke-[2.2]" />
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-200">You're currently the only member in this group</p>
-              <p className="text-[11px] text-slate-400">
-                Share invite code <strong className="font-mono text-emerald-400">{group?.invite_code || '...'}</strong> so friends can join and split this bill with you!
+              <p className="text-xs font-bold text-white">You're currently the only member in this group</p>
+              <p className="text-[11px] text-neutral-400">
+                Share invite code <strong className="font-mono text-white">{group?.invite_code || '...'}</strong> so friends can join and split this bill with you!
               </p>
             </div>
           </div>
           <button
             onClick={handleCopyInvite}
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-500/20 border border-sky-500/40 px-3 py-1.5 text-xs font-bold text-sky-300 hover:bg-sky-500/30 transition shrink-0"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-white text-black px-3.5 py-1.5 text-xs font-semibold hover:bg-neutral-200 transition shrink-0 active:scale-95"
           >
             <Copy className="h-3.5 w-3.5" />
             <span>Copy Code ({group?.invite_code})</span>
@@ -367,73 +353,81 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
       )}
 
       {/* Receipt Info Card */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 backdrop-blur-xl mb-6 shadow-xl">
+      <div className="rounded-3xl border border-white/10 bg-neutral-900/70 p-6 backdrop-blur-xl mb-6 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center rounded-md bg-slate-800 px-2.5 py-0.5 text-xs font-semibold text-slate-300">
-                <Tag className="h-3 w-3 mr-1 text-emerald-400" />
+              <span className="inline-flex items-center rounded-md bg-neutral-800 px-2.5 py-0.5 text-xs font-semibold text-neutral-300">
+                <Tag className="h-3 w-3 mr-1 text-neutral-400" />
                 {receipt.category || 'Other'}
               </span>
 
               {isConfirmed ? (
-                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-                  <Check className="h-3 w-3 mr-1 stroke-[3]" /> Confirmed
+                <span className="inline-flex items-center rounded-md bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-white border border-white/20">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Confirmed & Settled
                 </span>
               ) : isParsed ? (
-                <span className="inline-flex items-center rounded-md bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-400 border border-sky-500/20">
+                <span className="inline-flex items-center rounded-md bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-neutral-200 border border-white/15">
                   Ready to Split
                 </span>
               ) : (
-                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400 border border-amber-500/20">
+                <span className="inline-flex items-center rounded-md bg-neutral-800 px-2.5 py-0.5 text-xs font-semibold text-neutral-400">
+                  <Clock className="h-3 w-3 mr-1" />
                   Pending Scan
                 </span>
               )}
             </div>
 
-            <h2 className="text-2xl font-bold tracking-tight text-slate-100">
+            <h2 className="text-2xl font-bold tracking-tight text-white">
               {receipt.merchant_name || 'Receipt Inspector'}
             </h2>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{receipt.receipt_date || new Date(receipt.created_at).toLocaleDateString()}</span>
-              </span>
-              {receipt.notes && (
-                <span className="text-slate-500">Note: {receipt.notes}</span>
+
+            <div className="flex items-center gap-4 mt-2 text-xs text-neutral-400">
+              {receipt.receipt_date && (
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{receipt.receipt_date}</span>
+                </div>
+              )}
+              {receipt.paid_by_name && (
+                <div>
+                  Paid by: <span className="font-semibold text-white">{receipt.paid_by_name}</span>
+                </div>
               )}
             </div>
           </div>
 
-          <div className="flex items-baseline gap-2 bg-slate-950 px-5 py-3 rounded-2xl border border-slate-800">
-            <span className="text-xs text-slate-500 font-semibold">TOTAL</span>
-            <span className="font-mono text-2xl font-black text-emerald-400">
+          <div className="flex sm:flex-col items-baseline sm:items-end justify-between border-t sm:border-t-0 border-neutral-800 pt-3 sm:pt-0">
+            <span className="text-xs font-medium text-neutral-400 uppercase tracking-wider">Total</span>
+            <span className="font-mono text-2xl sm:text-3xl font-bold tracking-tight text-white">
               {formatMoney(totalAmount, currency)}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Main Action Banner if Pending AI Scan */}
+      {/* AI Extraction Trigger Hero (if not parsed yet) */}
       {!isParsed && hasImage && (
-        <div className="rounded-3xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-teal-950/40 p-8 text-center shadow-xl mb-6">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4 animate-pulse-glow">
-            <Sparkles className="h-7 w-7" />
+        <div className="mb-8 rounded-3xl border border-white/10 bg-gradient-to-b from-neutral-900 to-black p-8 text-center shadow-xl">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-black shadow-xl shadow-white/10">
+            <Sparkles className="h-7 w-7 stroke-[2.2]" />
           </div>
-          <h3 className="text-lg font-bold text-slate-100">
+          <h3 className="text-lg font-bold text-white mb-2">
             Extract Line Items with Gemini AI
           </h3>
-          <p className="mt-1 text-xs text-slate-400 max-w-md mx-auto mb-6">
+          <p className="mx-auto max-w-md text-xs text-neutral-400 mb-6 leading-relaxed">
             Gemini Vision will identify purchased items, prices, and totals with automated privacy redaction.
           </p>
+
           <button
-            onClick={handleParse}
+            onClick={handleParseReceipt}
             disabled={parsing}
-            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 px-6 py-3 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-50 transition active:scale-95"
+            className="inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-bold text-black shadow-lg shadow-white/10 hover:bg-neutral-200 disabled:opacity-50 transition active:scale-95"
           >
             {parsing ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin text-black" />
                 <span>Analyzing Receipt with Gemini...</span>
               </>
             ) : (
@@ -451,8 +445,8 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
         <div className="space-y-6">
           {/* Quick Actions Bar */}
           {!isConfirmed && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-              <span className="text-xs font-semibold text-slate-300">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 p-4">
+              <span className="text-xs font-semibold text-neutral-300">
                 Split Helper Tools:
               </span>
               <div className="flex items-center gap-2">
@@ -460,19 +454,19 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
                   onClick={handleAutoSplitAll}
                   disabled={isSoloMember}
                   title={isSoloMember ? 'Invite other members to split equally' : 'Split all items equally among members'}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition active:scale-95 ${
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
                     isSoloMember
-                      ? 'border-slate-800 bg-slate-950 text-slate-500 cursor-not-allowed opacity-60'
-                      : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:border-emerald-500/30'
+                      ? 'border-neutral-800 bg-neutral-900 text-neutral-500 cursor-not-allowed opacity-60'
+                      : 'border-neutral-700 bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:text-white'
                   }`}
                 >
-                  <Layers className={`h-3.5 w-3.5 ${isSoloMember ? 'text-slate-500' : 'text-emerald-400'}`} />
+                  <Layers className={`h-3.5 w-3.5 ${isSoloMember ? 'text-neutral-500' : 'text-white'}`} />
                   <span>Split All Equally {isSoloMember ? '(Needs 2+ Members)' : ''}</span>
                 </button>
 
                 <button
                   onClick={() => setIsAddingItem(!isAddingItem)}
-                  className="flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400 hover:bg-emerald-500/20 transition active:scale-95"
+                  className="flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 transition active:scale-95"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Add Item</span>
@@ -483,17 +477,17 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
 
           {/* Inline Add Item Form */}
           {isAddingItem && !isConfirmed && (
-            <form onSubmit={handleAddItem} className="rounded-2xl border border-emerald-500/30 bg-slate-900 p-4 space-y-3 animate-slideDown">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Add Line Item</span>
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div className="sm:col-span-2">
+            <form onSubmit={handleAddItem} className="rounded-2xl border border-neutral-800 bg-neutral-900/70 p-4 animate-fadeIn">
+              <div className="text-xs font-bold text-white mb-3">Add Custom Item</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                <div className="sm:col-span-1">
                   <input
                     type="text"
                     required
                     placeholder="Item description"
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none transition"
+                    className="w-full rounded-xl border border-neutral-800 bg-black px-3 py-2 text-xs text-white focus:border-white focus:outline-none transition"
                   />
                 </div>
                 <div>
@@ -505,7 +499,7 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
                     placeholder={`Price (${symbol})`}
                     value={newItemPrice}
                     onChange={(e) => setNewItemPrice(e.target.value)}
-                    className="w-full font-mono rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none transition"
+                    className="w-full font-mono rounded-xl border border-neutral-800 bg-black px-3 py-2 text-xs text-white focus:border-white focus:outline-none transition"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -515,57 +509,65 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
                     placeholder="Qty"
                     value={newItemQty}
                     onChange={(e) => setNewItemQty(e.target.value)}
-                    className="w-16 font-mono text-center rounded-xl border border-slate-800 bg-slate-950 px-2 py-2 text-xs text-slate-100 focus:border-emerald-500 focus:outline-none transition"
+                    className="w-16 font-mono text-center rounded-xl border border-neutral-800 bg-black px-2 py-2 text-xs text-white focus:border-white focus:outline-none transition"
                   />
                   <button
                     type="submit"
-                    className="flex-1 rounded-xl bg-emerald-500 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition"
+                    className="flex-1 rounded-xl bg-white px-4 py-2 text-xs font-bold text-black hover:bg-neutral-200 transition"
                   >
                     Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingItem(false)}
+                    className="rounded-xl border border-neutral-800 px-3 py-2 text-xs text-neutral-400 hover:text-white"
+                  >
+                    Cancel
                   </button>
                 </div>
               </div>
             </form>
           )}
 
-          {/* Items Table */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-900/60 backdrop-blur-sm overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300">
+          {/* Items Breakdown Table */}
+          <div className="overflow-hidden rounded-3xl border border-white/10 bg-neutral-900/50 backdrop-blur-xl">
+            <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
+              <h3 className="text-sm font-bold tracking-tight text-white">
                 Itemized Breakdown ({items.length})
               </h3>
-              <span className="text-xs text-slate-400">
-                {isSoloMember ? '1 member in group' : 'Tap member pills to toggle shares'}
+              <span className="text-xs text-neutral-400">
+                {members.length} {members.length === 1 ? 'member' : 'members'} in group
               </span>
             </div>
 
-            <div className="divide-y divide-slate-800/80">
+            <div className="divide-y divide-neutral-800/60">
               {items.map((item) => {
-                const itemPrice = parseFloat(item.price);
-                const shares = item.item_shares || [];
-                const sharerIds = shares.map((s) => s.user_id);
+                const itemShares = item.item_shares || [];
+                const assignedCount = itemShares.length;
 
                 return (
-                  <div key={item.id} className="p-5 hover:bg-slate-900/80 transition">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-100">{item.name}</span>
-                        {item.quantity > 1 && (
-                          <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-mono text-slate-400">
-                            x{item.quantity}
-                          </span>
+                  <div key={item.id} className="p-4 sm:p-5 hover:bg-neutral-900/80 transition">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div>
+                        <div className="font-semibold text-sm text-white">
+                          {item.name}
+                        </div>
+                        {item.original_name && item.original_name !== item.name && (
+                          <div className="text-[11px] text-neutral-400">
+                            Orig: {item.original_name}
+                          </div>
                         )}
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-base font-extrabold text-slate-100">
-                          {formatMoney(itemPrice * (item.quantity || 1), currency)}
+                        <span className="font-mono text-sm font-bold text-white">
+                          {formatMoney(item.price, currency)}
                         </span>
                         {!isConfirmed && (
                           <button
-                            onClick={() => handleDeleteItem(item.id, item.name)}
-                            title="Delete item"
-                            className="rounded-lg p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition"
+                            onClick={() => setItemToDelete(item)}
+                            className="rounded-lg p-1 text-neutral-500 hover:text-red-400 transition"
+                            title="Delete line item"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -573,24 +575,23 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
                       </div>
                     </div>
 
-                    {/* Member Share Selector Pills */}
-                    <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-semibold text-slate-500 mr-1">
-                        Split with:
-                      </span>
+                    {/* Member Allocation Pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] text-neutral-500 mr-1">Split with:</span>
                       {members.map((member) => {
-                        const isSelected = sharerIds.includes(member.user_id);
-                        const memberShareObj = shares.find((s) => s.user_id === member.user_id);
+                        const isSelected = itemShares.some((s) => s.user_id === member.user_id);
+                        const memberShareObj = itemShares.find((s) => s.user_id === member.user_id);
 
                         return (
                           <button
                             key={member.user_id}
+                            type="button"
                             disabled={isConfirmed}
                             onClick={() => handleToggleMemberItemShare(item, member.user_id)}
                             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 ${
                               isSelected
-                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                                : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-slate-700 hover:text-slate-300'
+                                ? 'bg-white text-black shadow-sm font-bold'
+                                : 'bg-black text-neutral-500 border border-neutral-800 hover:border-neutral-600 hover:text-neutral-300'
                             }`}
                           >
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -610,30 +611,66 @@ export default function ReceiptSplitView({ receiptId, onBack, onConfirmed, curre
             </div>
           </div>
 
-          {/* Confirm & Recalculate Button */}
+          {/* Confirm & Recalculate Button Section with Solo Member Guard */}
           {!isConfirmed && (
-            <div className="flex justify-end pt-2">
+            <div className="flex flex-col items-end gap-2 pt-2">
               <button
                 onClick={handleConfirm}
-                disabled={confirming}
-                className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 px-6 py-3 text-sm font-bold text-slate-950 shadow-xl shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-50 transition active:scale-95"
+                disabled={confirming || isSoloMember}
+                title={isSoloMember ? 'Requires 2 or more members to split debts' : 'Confirm and recalculate group debts'}
+                className={`flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-bold transition active:scale-95 ${
+                  isSoloMember
+                    ? 'border border-neutral-800 bg-neutral-900 text-neutral-500 cursor-not-allowed opacity-60 shadow-none'
+                    : 'bg-white text-black hover:bg-neutral-200 shadow-xl shadow-white/10'
+                }`}
               >
                 {confirming ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin text-black" />
                     <span>Recalculating Debts...</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="h-4 w-4 stroke-[2.5]" />
-                    <span>Confirm & Recalculate Group Debts</span>
+                    <CheckCircle2 className={`h-4 w-4 stroke-[2.5] ${isSoloMember ? 'text-neutral-500' : 'text-black'}`} />
+                    <span>Confirm & Recalculate Group Debts {isSoloMember ? '(Needs 2+ Members)' : ''}</span>
                   </>
                 )}
               </button>
+              {isSoloMember && (
+                <p className="text-[11px] text-neutral-500">
+                  ⚠️ At least 2 members are required in this group to calculate and settle group debts.
+                </p>
+              )}
             </div>
           )}
         </div>
       )}
+
+      {/* Delete Item Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!itemToDelete}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={confirmDeleteItem}
+        title={`Delete "${itemToDelete?.name}"?`}
+        message="Are you sure you want to delete this line item from the receipt breakdown?"
+        confirmText="Delete Item"
+        cancelText="Cancel"
+        isDestructive={true}
+        loading={deleting}
+      />
+
+      {/* Delete Receipt Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteReceiptModal}
+        onClose={() => setShowDeleteReceiptModal(false)}
+        onConfirm={confirmDeleteReceipt}
+        title="Delete Receipt?"
+        message="Permanently delete this receipt and all its split calculations? Group debt balances will be recalculated."
+        confirmText="Delete Receipt"
+        cancelText="Keep Receipt"
+        isDestructive={true}
+        loading={deleting}
+      />
     </div>
   );
 }

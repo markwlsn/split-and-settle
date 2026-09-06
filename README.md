@@ -25,6 +25,10 @@ Our algorithmic settlement engine then reduces circular group debts to the **abs
 - 🌍 **Universal Multi-Currency Detection**: Auto-detects currencies from receipt symbols (`$`, `₱`, `¥`, `€`, `£`, `₩`, `₹`, `฿`, `₫`, `R$`, etc.) or permits 1-click manual switching with zero-decimal currency support (JPY, KRW, VND, IDR).
 - ⚡ **Direct Receipt Onboarding**: Attach a receipt directly while creating a group — Gemini automatically scans the receipt, sets the currency, and takes you straight into the itemized split screen.
 - 🧮 **Greedy Settlement Optimization**: Minimizes peer-to-peer payments so groups never have to execute circular transfers.
+- 🛡️ **Solo-Member Debt Recalculation Guard**: Proactively protects 1-member groups by disabling the debt recalculation trigger with explicit `(Needs 2+ Members)` indicators until peers join.
+- 📱 **Enhanced Registration Flow**: Comprehensive onboarding capturing Full Name, Email, Phone Number, interactive Show/Hide Password visibility, and mandatory Terms & Privacy agreement.
+- 🎨 **Apple-Inspired Monochrome Theme**: Sleek pure-black (`#000000`) dark mode with frosted glass blur backdrops, crisp borders (`border-white/10`), high-contrast typography, and Apple system font stacks.
+- 🗑️ **Custom Confirmation Modals**: Eliminates intrusive browser `window.confirm` and `window.prompt` dialogs in favor of responsive, keyboard-accessible Apple-style modal dialogs.
 - 🔒 **Enterprise Row-Level Security (RLS)**: Enforces multi-tenant data privacy and group isolation directly at the database level using PostgreSQL security definer policies.
 - 🎟️ **6-Character Invite Codes**: Join groups instantly with human-readable invite codes (e.g. `TRIP26`) without sharing UUIDs.
 - 📊 **Spending Analytics & Activity Feed**: Category distribution charts, top merchants, per-member consumption metrics, and a chronological audit log.

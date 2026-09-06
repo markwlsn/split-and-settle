@@ -33,42 +33,42 @@ export default function SettleUpModal({ isOpen, onClose, groupId, members, defau
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fadeIn">
+      <div className="w-full max-w-md rounded-3xl border border-white/10 bg-neutral-900/95 p-6 shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-800">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <DollarSign className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white border border-white/15">
+              <DollarSign className="h-5 w-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-100">Record a Settlement</h3>
-              <p className="text-xs text-slate-400">Mark a payment you sent to a group member</p>
+              <h3 className="font-bold text-white">Record a Settlement</h3>
+              <p className="text-xs text-neutral-400">Mark a payment you sent to a group member</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+            className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
               Who did you pay? *
             </label>
             <select
               required
               value={toUser}
               onChange={(e) => setToUser(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none focus:ring-1 focus:ring-white transition"
             >
               <option value="" disabled>Select member</option>
               {members.map((m) => (
@@ -80,11 +80,11 @@ export default function SettleUpModal({ isOpen, onClose, groupId, members, defau
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
               Amount Paid ($) *
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-sm font-semibold text-slate-500">$</span>
+              <span className="absolute left-3.5 top-2.5 text-sm font-semibold text-neutral-500">$</span>
               <input
                 type="number"
                 step="0.01"
@@ -93,12 +93,12 @@ export default function SettleUpModal({ isOpen, onClose, groupId, members, defau
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8 pr-3.5 py-2.5 text-sm font-mono font-bold text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+                className="w-full rounded-xl border border-neutral-800 bg-black pl-8 pr-3.5 py-2.5 text-sm font-mono font-bold text-white placeholder-neutral-600 focus:border-white focus:outline-none focus:ring-1 focus:ring-white transition"
               />
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-xs text-slate-400">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-neutral-300">
             💡 Recording a payment will automatically update the minimum settlement transactions for the entire group.
           </div>
 
@@ -106,16 +106,16 @@ export default function SettleUpModal({ isOpen, onClose, groupId, members, defau
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !toUser || !amount}
-              className="flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
+              className="flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-black shadow-md hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin text-black" /> : <CheckCircle2 className="h-4 w-4" />}
               Confirm Payment
             </button>
           </div>

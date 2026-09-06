@@ -59,70 +59,200 @@ split-and-settle/
 │   ├── utils/                    # Settlement algorithms & split calculators
 │   └── server.js                 # HTTP Server entry point
 │
-└── tests/                        # 42 Passing automated Jest test suites
+└── tests/                        # 45 Passing automated Jest test cases
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Step-by-Step Setup Guide (VS Code Terminal)
 
-### Prerequisites
-- **Node.js**: v18+ or v20+
-- **Supabase Account**: [supabase.com](https://supabase.com)
-- **Google Gemini API Key**: [aistudio.google.com](https://aistudio.google.com/)
+Follow this step-by-step guide if you are setting up or cloning this project on your work laptop or a fresh machine using **Visual Studio Code**.
 
 ---
 
-### 1. Database Setup (Supabase)
-1. Open your **Supabase Dashboard** → **SQL Editor** → **New Query**.
-2. Copy and run the entire contents of [`sql/schema.sql`](./sql/schema.sql).
-3. Ensure a storage bucket named `receipts` exists (set to Private).
+### 📋 Prerequisites
+
+Ensure the following tools and accounts are ready before starting:
+
+1. **[Visual Studio Code](https://code.visualstudio.com/)** installed.
+2. **[Node.js](https://nodejs.org/)** (v18.x or v20.x LTS recommended).
+   - Check in terminal:
+     ```powershell
+     node -v
+     npm -v
+     ```
+3. **[Git](https://git-scm.com/)** installed.
+   - Check in terminal:
+     ```powershell
+     git --version
+     ```
+4. **Cloud Accounts (Free Tiers)**:
+   - **[Supabase](https://supabase.com/)** (Database, Auth, and Storage)
+   - **[Google AI Studio](https://aistudio.google.com/)** (Gemini Vision API key)
 
 ---
 
-### 2. Backend Setup
-```bash
-# Clone the repository
+### Step 1: Open VS Code & Open Terminal
+
+1. Launch **Visual Studio Code**.
+2. Open your projects folder (e.g. `Documents\Projects` or any folder where you keep code):
+   - In VS Code menu: **File** > **Open Folder...**
+3. Open the integrated terminal:
+   - Press <kbd>Ctrl</kbd> + <kbd>`</kbd> (backtick) or select **Terminal** > **New Terminal** from the top menu.
+
+---
+
+### Step 2: Clone & Open the Project
+
+In the VS Code terminal, run:
+
+```powershell
+# 1. Clone the repository
 git clone https://github.com/markwlsn/split-and-settle.git
+
+# 2. Navigate into the project folder
 cd split-and-settle
-
-# Install backend dependencies
-npm install
-
-# Configure environment variables
-cp .env.example .env
 ```
 
-Edit `.env` with your credentials:
-```ini
-PORT=5000
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-GEMINI_API_KEY=your-gemini-api-key
-NODE_ENV=development
-```
-
-Start the backend server:
-```bash
-npm run dev
-```
-*Backend runs on `http://localhost:5000`*
+> [!TIP]
+> To open the cloned repository as your active VS Code workspace, click **File** > **Open Folder...** and select the `split-and-settle` folder (or run `code . -r` in the terminal).
 
 ---
 
-### 3. Frontend Setup
-```bash
-# In a new terminal window:
-cd split-and-settle/frontend
+### Step 3: Cloud & Database Setup (One-Time)
 
-# Install frontend dependencies
+#### A. Supabase Database & Storage Setup
+1. Log in to [Supabase](https://supabase.com/) and click **New Project**.
+2. Enter a project name (e.g., `split-and-settle`) and set a secure database password.
+3. **Run Schema Script**:
+   - In the Supabase left sidebar, click **SQL Editor** (`>_` icon).
+   - Click **New query**.
+   - Copy the entire contents of [`sql/schema.sql`](./sql/schema.sql) and paste it into the query window.
+   - Click **Run** (or press <kbd>Ctrl</kbd> + <kbd>Enter</kbd>). You should see `Success. No rows returned`.
+4. **Storage Bucket**:
+   - In the left sidebar, click **Storage**.
+   - Verify that a bucket named `receipts` exists. If not, click **New Bucket**, name it `receipts`, and set it to **Private**.
+5. **Retrieve API Keys**:
+   - Navigate to **Project Settings** (gear icon) > **API** (or **Data API**).
+   - Note down the following 3 values:
+     - **Project URL** (e.g. `https://xxxx.supabase.co`)
+     - **anon / public key** (starts with `sb_publishable_` or `eyJ...`)
+     - **service_role secret key** (starts with `sb_secret_` or `eyJ...`)
+
+#### B. Google Gemini API Key
+1. Go to [Google AI Studio](https://aistudio.google.com/).
+2. Sign in with your Google account.
+3. Click **Get API key** → **Create API key**.
+4. Copy your generated key (starts with `AIza...` or similar).
+
+---
+
+### Step 4: Configure Environment Variables (`.env`)
+
+In your VS Code terminal (at the project root `split-and-settle`):
+
+1. Create your `.env` file from `.env.example`:
+   - **In PowerShell**:
+     ```powershell
+     Copy-Item .env.example .env
+     ```
+   - **In Bash / Git Bash**:
+     ```bash
+     cp .env.example .env
+     ```
+   - *Or in VS Code File Explorer*: Right-click `.env.example`, select **Copy**, right-click in empty space, select **Paste**, and rename the copied file to `.env`.
+
+2. Open the newly created `.env` file in VS Code and fill in your actual credentials:
+   ```ini
+   PORT=5000
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_ANON_KEY=your-supabase-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+   GEMINI_API_KEY=your-gemini-api-key
+   NODE_ENV=development
+   ```
+
+> [!NOTE]
+> The frontend is pre-configured to proxy all API requests to `http://localhost:5000` via Vite. You **do not** need to create a separate `.env` file inside the `frontend` folder for local development.
+
+---
+
+### Step 5: Install Dependencies (Backend & Frontend)
+
+Because this is a full-stack project, dependencies must be installed in **both** the root backend directory and the `frontend` directory:
+
+```powershell
+# 1. Install Backend Dependencies (from project root)
 npm install
 
-# Start the Vite development server
+# 2. Switch to the frontend directory and install dependencies
+cd frontend
+npm install
+
+# 3. Return back to project root
+cd ..
+```
+
+---
+
+### Step 6: Start Backend & Frontend (VS Code Split Terminal)
+
+Run both servers side-by-side using VS Code's **Split Terminal**:
+
+1. Open your VS Code terminal (<kbd>Ctrl</kbd> + <kbd>`</kbd>).
+2. Split the terminal pane by clicking the **Split Terminal** icon (the split rectangle `|` in the top right of the terminal window) or by pressing <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>5</kbd>.
+
+#### 💻 Terminal 1 — Backend (Root directory `split-and-settle`)
+```powershell
 npm run dev
 ```
-*Frontend runs on `http://localhost:5173`*
+> ✅ *Expected output: `Backend server running on port 5000` & `Connected to Supabase`*
+
+#### 💻 Terminal 2 — Frontend (`frontend` directory)
+In the second terminal pane:
+```powershell
+cd frontend
+npm run dev
+```
+> ✅ *Expected output: `VITE v6.x.x ready in ... ms` & `➜ Local: http://localhost:5173/`*
+
+---
+
+### Step 7: Open the App in Your Browser
+
+1. In your web browser, navigate to:
+   👉 **[http://localhost:5173](http://localhost:5173)**
+
+2. **Verify the Application**:
+   - Click **Create Account** and register with your Name, Email, Phone number, and Password.
+   - Click **Create Group** (e.g., *"Dinner & Drinks"*).
+   - Test receipt processing by uploading a sample receipt via **Upload Receipt**, or add manual line items via **Manual Expense**.
+   - Share the 6-character group invite code with another account or in an incognito window to test real-time splits!
+
+---
+
+### 🛠️ Common Troubleshooting & Tips
+
+#### 1. `'nodemon' is not recognized as an internal or external command`
+- **Cause**: Backend dependencies were not installed before running `npm run dev`.
+- **Fix**: Run `npm install` in the root `split-and-settle` folder before starting `npm run dev`.
+
+#### 2. `The token '&&' is not a valid statement separator`
+- **Cause**: PowerShell 5.1 does not support the bash `&&` chaining syntax.
+- **Fix**: Run commands on separate lines or separate them with a semicolon `;` (e.g. `npm install; cd frontend; npm install`).
+
+#### 3. `Port 5000 is already in use (EADDRINUSE)`
+- **Cause**: Another process or background instance of Node is holding port 5000.
+- **Fix**: 
+  - Stop the running process in PowerShell:
+    ```powershell
+    Stop-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess -Force
+    ```
+  - Or change `PORT=5001` in `.env` and update the port in `frontend/vite.config.js`.
+
+#### 4. Supabase Auth / Connection Errors
+- **Cause**: Missing or incorrect keys in `.env`, or the SQL schema was not run.
+- **Fix**: Double check your `SUPABASE_URL` and keys in `.env` (ensure no accidental spaces or surrounding quotes), and confirm [`sql/schema.sql`](./sql/schema.sql) was executed in the Supabase SQL editor.
 
 ---
 
@@ -150,7 +280,7 @@ npm run dev
 
 ## 🧪 Running Tests
 
-The backend includes 44 unit and integration tests verifying settlement algorithms, penny reconciliation, and validation guards:
+The backend includes 45 unit and integration tests verifying settlement algorithms, penny reconciliation, and validation guards:
 
 ```bash
 npm test

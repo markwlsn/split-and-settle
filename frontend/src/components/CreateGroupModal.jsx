@@ -81,22 +81,22 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="create-group-title">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fadeIn" role="dialog" aria-modal="true" aria-labelledby="create-group-title">
+      <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-neutral-900/95 p-6 shadow-2xl backdrop-blur-xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between pb-4 border-b border-neutral-800 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <Users className="h-5 w-5" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white border border-white/15">
+              <Users className="h-5 w-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 id="create-group-title" className="font-bold text-slate-100">Create New Group</h3>
-              <p className="text-xs text-slate-400">Share receipts & split costs with friends</p>
+              <h3 id="create-group-title" className="font-bold text-white">Create New Group</h3>
+              <p className="text-xs text-neutral-400">Share receipts & split costs with friends</p>
             </div>
           </div>
           <button
             onClick={onClose}
             disabled={loading}
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+            className="rounded-lg p-1 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
           >
             <X className="h-5 w-5" />
           </button>
@@ -110,7 +110,7 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4 overflow-y-auto flex-1 pr-1">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
               Group Name *
             </label>
             <input
@@ -120,12 +120,12 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white placeholder-neutral-500 focus:border-white focus:outline-none focus:ring-1 focus:ring-white/20 transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
               Your Display Name in this Group (Optional)
             </label>
             <input
@@ -134,61 +134,55 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               disabled={loading}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition"
+              className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white placeholder-neutral-500 focus:border-white focus:outline-none focus:ring-1 focus:ring-white/20 transition"
             />
           </div>
 
           {/* Optional Initial Receipt Upload */}
           <div className="pt-2">
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+              <label className="text-xs font-bold text-neutral-300 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-white" />
                 <span>Attach First Receipt (Optional)</span>
               </label>
-              <span className="text-[11px] text-emerald-400/90 font-medium">Auto-detects items & currency</span>
+              <span className="text-[11px] text-neutral-400 font-medium">Auto-detects items & currency</span>
             </div>
 
             {!previewUrl ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/60 p-5 cursor-pointer hover:border-emerald-500/40 hover:bg-slate-950 transition group"
+                className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-800 bg-black/60 p-5 cursor-pointer hover:border-neutral-600 hover:bg-black transition group"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-slate-400 border border-slate-800 group-hover:text-emerald-400 group-hover:border-emerald-500/30 transition mb-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-neutral-900 text-neutral-400 border border-neutral-800 group-hover:text-white group-hover:border-neutral-600 transition mb-2">
                   <UploadCloud className="h-5 w-5" />
                 </div>
-                <p className="text-xs font-semibold text-slate-300 group-hover:text-emerald-300 transition">
+                <p className="text-xs font-semibold text-neutral-300 group-hover:text-white transition">
                   Click or drag receipt photo here
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Gemini AI extracts items and automatically sets the currency
-                </p>
+                <p className="mt-1 text-[11px] text-neutral-500">Supports JPG, PNG, WEBP</p>
               </div>
             ) : (
-              <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-3">
+              <div className="relative rounded-2xl border border-neutral-800 bg-black p-3">
                 <div className="flex items-center gap-3">
                   <img
                     src={previewUrl}
                     alt="Receipt preview"
-                    className="h-12 w-12 rounded-xl object-cover border border-slate-800"
+                    className="h-16 w-16 rounded-xl object-cover border border-neutral-800"
                   />
-                  <div>
-                    <p className="text-xs font-bold text-slate-200 truncate max-w-[220px]">
-                      {receiptFile?.name}
-                    </p>
-                    <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" />
-                      <span>Will auto-detect items & currency</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{receiptFile.name}</p>
+                    <p className="text-[11px] text-neutral-400">
+                      {(receiptFile.size / 1024).toFixed(1)} KB • Ready for Gemini scan
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-800 hover:text-red-400 transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleRemoveFile}
-                  disabled={loading}
-                  className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-red-400 transition"
-                >
-                  <X className="h-4 w-4" />
-                </button>
               </div>
             )}
 
@@ -201,28 +195,28 @@ export default function CreateGroupModal({ isOpen, onClose, onGroupCreated }) {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-800">
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="rounded-xl border border-slate-800 px-4 py-2.5 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition"
+              className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !name.trim()}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-md shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
+              className="flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-black shadow-md hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-95"
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin text-black" />
                   <span>{loadingStep || 'Creating...'}</span>
                 </>
               ) : (
                 <>
-                  <PlusCircle className="h-4 w-4" />
+                  <PlusCircle className="h-4 w-4 stroke-[2.2]" />
                   <span>Create Group {receiptFile ? '& Scan Receipt' : ''}</span>
                 </>
               )}

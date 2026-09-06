@@ -2,12 +2,12 @@ const { getSupabaseAnon } = require('../lib/supabaseClient');
 
 async function register(req, res, next) {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, phone } = req.body;
     const supabaseAnon = getSupabaseAnon();
     const { data, error } = await supabaseAnon.auth.signUp({
       email,
       password,
-      options: { data: { name } },
+      options: { data: { name, phone: phone || null } },
     });
     if (error) {
       return res.status(400).json({ error: error.message });

@@ -2,53 +2,227 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   SPLIT & SETTLE — DESIGN TOKEN SYSTEM
+   Apple HIG-inspired, dark-first. Light mode via html.light
+   ============================================================ */
+
+/* DARK MODE (default) */
+:root {
+  /* Backgrounds */
+  --bg-base:      #000000;   /* page background */
+  --bg-surface:   #111111;   /* cards, modals */
+  --bg-elevated:  #1c1c1e;   /* inputs, hover fills */
+  --bg-overlay:   rgba(0,0,0,0.85);
+
+  /* Text */
+  --text-primary:     #ffffff;
+  --text-secondary:   #8e8e93;   /* iOS gray 2 */
+  --text-tertiary:    #48484a;   /* iOS gray 4 */
+  --text-placeholder: #3a3a3c;
+
+  /* Borders */
+  --border:       rgba(255,255,255,0.09);
+  --border-strong: rgba(255,255,255,0.18);
+
+  /* Accent — iOS Blue */
+  --accent:       #0a84ff;
+  --accent-light: rgba(10,132,255,0.15);
+  --accent-text:  #ffffff;
+
+  /* Status */
+  --success:      #30d158;
+  --success-light: rgba(48,209,88,0.15);
+  --warning:      #ffd60a;
+  --warning-light: rgba(255,214,10,0.15);
+  --destructive:  #ff453a;
+  --destructive-light: rgba(255,69,58,0.15);
+
+  /* Interactive */
+  --btn-primary-bg:   #ffffff;
+  --btn-primary-text: #000000;
+  --btn-secondary-bg: #1c1c1e;
+  --btn-secondary-text: #ffffff;
+  --btn-ghost-text:   #8e8e93;
+
+  /* Surfaces */
+  --card-bg:      #111111;
+  --card-border:  rgba(255,255,255,0.09);
+  --modal-bg:     rgba(18,18,18,0.97);
+  --tab-active-bg: #1c1c1e;
+  --tab-bar-bg:   rgba(10,10,10,0.92);
+
+  /* Scrollbar */
+  --scrollbar-thumb: #2c2c2e;
+}
+
+/* LIGHT MODE */
+html.light {
+  --bg-base:      #f2f2f7;   /* iOS off-white */
+  --bg-surface:   #ffffff;
+  --bg-elevated:  #f2f2f7;
+  --bg-overlay:   rgba(0,0,0,0.4);
+
+  --text-primary:     #000000;
+  --text-secondary:   #6e6e73;
+  --text-tertiary:    #aeaeb2;
+  --text-placeholder: #c7c7cc;
+
+  --border:       rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.16);
+
+  --accent:       #007aff;
+  --accent-light: rgba(0,122,255,0.12);
+  --accent-text:  #ffffff;
+
+  --success:      #34c759;
+  --success-light: rgba(52,199,89,0.12);
+  --warning:      #ff9f0a;
+  --warning-light: rgba(255,159,10,0.12);
+  --destructive:  #ff3b30;
+  --destructive-light: rgba(255,59,48,0.12);
+
+  --btn-primary-bg:   #000000;
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: #e5e5ea;
+  --btn-secondary-text: #000000;
+  --btn-ghost-text:   #6e6e73;
+
+  --card-bg:      #ffffff;
+  --card-border:  rgba(0,0,0,0.07);
+  --modal-bg:     rgba(255,255,255,0.97);
+  --tab-active-bg: #e5e5ea;
+  --tab-bar-bg:   rgba(242,242,247,0.94);
+
+  --scrollbar-thumb: #c7c7cc;
+}
+
+/* ============================================================
+   BASE STYLES
+   ============================================================ */
 @layer base {
+  html {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+  }
+
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', 'Plus Jakarta Sans', sans-serif;
-    background-color: #000000;
-    color: #ffffff;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+      'Helvetica Neue', 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.25s ease, color 0.2s ease;
   }
-  
+
   code, pre, .font-mono {
     font-family: 'SF Mono', 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
   }
 
   ::selection {
-    background-color: #ffffff;
-    color: #000000;
+    background-color: var(--accent);
+    color: var(--accent-text);
   }
 }
 
-/* Apple-style minimalist scrollbar */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+/* ============================================================
+   REUSABLE COMPONENT TOKENS (Tailwind-compatible utility classes)
+   ============================================================ */
+
+/* Cards */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 1.25rem; /* 20px — Apple large radius */
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* Inputs */
+.input-field {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+.input-field::placeholder { color: var(--text-placeholder); }
+.input-field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+/* Primary button */
+.btn-primary {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border-radius: 0.875rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Secondary button */
+.btn-secondary {
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-radius: 0.875rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn-secondary:hover { opacity: 0.82; }
+.btn-secondary:active { transform: scale(0.97); }
+
+/* Accent button */
+.btn-accent {
+  background-color: var(--accent);
+  color: var(--accent-text);
+  border-radius: 0.875rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+.btn-accent:hover { opacity: 0.88; }
+.btn-accent:active { transform: scale(0.97); }
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: #262626;
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #404040;
-}
+::-webkit-scrollbar-thumb:hover { opacity: 0.7; }
 
-/* Subtle Apple shimmer pulse */
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
 @keyframes pulse-glow {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.01);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.8; transform: scale(1.01); }
 }
+.animate-pulse-glow { animation: pulse-glow 2.5s infinite ease-in-out; }
 
-.animate-pulse-glow {
-  animation: pulse-glow 2.5s infinite ease-in-out;
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.22s ease-out forwards; }
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up { animation: slide-up 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+/* Bottom tab bar safe area */
+.pb-tab-bar { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+.bottom-tab-bar {
+  padding-bottom: env(safe-area-inset-bottom);
 }

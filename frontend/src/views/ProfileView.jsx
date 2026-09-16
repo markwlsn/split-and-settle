@@ -152,13 +152,23 @@ export default function ProfileView({ onBack, onOpenAdmin }) {
                 {user?.email}
               </p>
 
-              <div
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold mt-4"
-                style={{ background: "var(--accent-light)", color: "var(--accent)" }}
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                <span>Verified Account</span>
-              </div>
+              {isAdmin ? (
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold mt-4"
+                  style={{ background: "rgba(10, 132, 255, 0.15)", color: "var(--accent)", border: "1px solid rgba(10, 132, 255, 0.25)" }}
+                >
+                  <Shield className="h-3.5 w-3.5 text-blue-500" />
+                  <span>System Administrator</span>
+                </div>
+              ) : (
+                <div
+                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold mt-4"
+                  style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Verified Member</span>
+                </div>
+              )}
             </div>
           </div>
 

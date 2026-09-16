@@ -263,6 +263,9 @@ export default function AdminView({ onBack, onOpenUserApp }) {
   // Filtered users
   const filteredUsersList = useMemo(() => {
     return usersList.filter((u) => {
+      const isAdminUser = u.role === 'admin' || u.email?.toLowerCase() === 'markwilsongeronilla01@gmail.com';
+      if (userFilter === 'admins') return isAdminUser && !u.isArchived;
+      if (userFilter === 'members') return !isAdminUser && !u.isArchived;
       if (userFilter === 'active') return !u.isArchived;
       if (userFilter === 'archived') return u.isArchived;
       return true;
@@ -954,15 +957,16 @@ export default function AdminView({ onBack, onOpenUserApp }) {
                 </p>
               </div>
 
-              {/* User Filter (All, Active, Archived) */}
-              <div className="flex items-center gap-1 text-xs">
+              {/* User Filter (All, Admins, Members, Archived) */}
+              <div className="flex items-center gap-1 text-xs flex-wrap">
                 <span className="font-semibold text-xs mr-1" style={{ color: 'var(--text-secondary)' }}>
                   Filter:
                 </span>
                 {[
                   { id: 'all', label: `All (${usersList.length})` },
-                  { id: 'active', label: `Active (${usersList.filter((u) => !u.isArchived).length})` },
-                  { id: 'archived', label: `Archived (${usersList.filter((u) => u.isArchived).length})` },
+                  { id: 'admins', label: `👑 Admins (${usersList.filter((u) => (u.role === 'admin' || u.email?.toLowerCase() === 'markwilsongeronilla01@gmail.com') && !u.isArchived).length})` },
+                  { id: 'members', label: `👥 Members (${usersList.filter((u) => !(u.role === 'admin' || u.email?.toLowerCase() === 'markwilsongeronilla01@gmail.com') && !u.isArchived).length})` },
+                  { id: 'archived', label: `📦 Archived (${usersList.filter((u) => u.isArchived).length})` },
                 ].map((f) => (
                   <button
                     key={f.id}
@@ -992,13 +996,18 @@ export default function AdminView({ onBack, onOpenUserApp }) {
                 <p className="text-xs mt-1 max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
                   {userFilter === 'archived'
                     ? 'No accounts are currently archived. Archiving allows you to suspend accounts without wiping historical bills.'
+                    : userFilter === 'admins'
+                    ? 'No administrator accounts found.'
+                    : userFilter === 'members'
+                    ? 'No regular member accounts found.'
                     : 'No active user accounts found.'}
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {filteredUsersList.map((u) => {
-                  const isOwner = u.email === 'markwilsongeronilla01@gmail.com' || u.role === 'admin' || u.id === user?.id;
+                  const isAdminUser = u.role === 'admin' || u.email?.toLowerCase() === 'markwilsongeronilla01@gmail.com';
+                  const isSelf = u.id === user?.id;
                   const isArchived = u.isArchived;
 
                   return (
@@ -1024,12 +1033,25 @@ export default function AdminView({ onBack, onOpenUserApp }) {
                               <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
                                 {u.name}
                               </p>
-                              {isOwner && (
+                              {isAdminUser ? (
                                 <span
-                                  className="rounded-full px-1.5 py-0.2 text-[9px] font-bold uppercase"
-                                  style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--accent)' }}
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                                  style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--accent)', border: '1px solid rgba(10, 132, 255, 0.3)' }}
                                 >
-                                  Admin
+                                  <Shield className="h-2.5 w-2.5" /> Admin
+                                </span>
+                              ) : (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20"
+                                >
+                                  <Users className="h-2.5 w-2.5" /> Member
+                                </span>
+                              )}
+                              {isSelf && (
+                                <span
+                                  className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25"
+                                >
+                                  You
                                 </span>
                               )}
                               {isArchived ? (
@@ -1095,12 +1117,12 @@ export default function AdminView({ onBack, onOpenUserApp }) {
                         ) : (
                           <>
                             <button
-                              disabled={isOwner}
+                              disabled={isAdminUser || isSelf}
                               onClick={() => {
                                 setArchivingUser(u);
                                 setArchiveReason('');
                               }}
-                              title={isOwner ? 'Cannot archive primary administrator' : 'Archive account (freeze / soft-delete)'}
+                              title={isAdminUser ? 'Cannot archive administrator account' : isSelf ? 'Cannot archive your own account' : 'Archive account (freeze / soft-delete)'}
                               className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
                               style={{
                                 background: 'rgba(245, 158, 11, 0.1)',

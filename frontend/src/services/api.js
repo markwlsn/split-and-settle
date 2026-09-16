@@ -150,4 +150,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ toUser, amount: Number(amount) }),
     }),
+
+  // Tickets & Feedback
+  createTicket: (data) =>
+    request('/tickets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getMyTickets: () => request('/tickets/my-tickets'),
 };

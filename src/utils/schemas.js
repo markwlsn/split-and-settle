@@ -115,6 +115,17 @@ const paymentSchema = z.object({
   amount: z.number().positive({ message: 'Payment amount must be positive' }),
 });
 
+const createTicketSchema = z.object({
+  type: z.enum(['bug', 'improvement', 'feature_request', 'satisfaction_survey'], {
+    message: 'Type must be bug, improvement, feature_request, or satisfaction_survey',
+  }),
+  title: z.string().min(1, { message: 'Title is required' }).max(200),
+  description: z.string().min(1, { message: 'Description is required' }),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).optional().default('medium'),
+  satisfactionRating: z.number().int().min(1).max(5).optional(),
+  metadata: z.record(z.any()).optional(),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -129,4 +140,5 @@ module.exports = {
   sharesSchema,
   autoSplitSchema,
   paymentSchema,
+  createTicketSchema,
 };

@@ -7,6 +7,7 @@ const {
   joinGroupSchema,
   updateReceiptSchema,
   autoSplitSchema,
+  createTicketSchema,
 } = require('../src/utils/schemas');
 
 describe('Hackathon Features Unit Tests', () => {
@@ -148,6 +149,50 @@ describe('Hackathon Features Unit Tests', () => {
           ],
         });
         expect(result.success).toBe(true);
+      });
+    });
+
+    describe('createTicketSchema', () => {
+      test('valid bug report passes validation with diagnostics metadata', () => {
+        const result = createTicketSchema.safeParse({
+          type: 'bug',
+          title: 'Scanner failed on vertical receipt',
+          description: 'When uploading receipt img123, total was not detected.',
+          priority: 'high',
+          metadata: { os: 'Windows 11', browser: 'Chrome' },
+        });
+        expect(result.success).toBe(true);
+        expect(result.data.priority).toBe('high');
+      });
+
+      test('valid satisfaction survey passes with rating between 1 and 5', () => {
+        const result = createTicketSchema.safeParse({
+          type: 'satisfaction_survey',
+          title: 'Experience Rating: 5/5',
+          description: 'Loved the Apple design and speed.',
+          satisfactionRating: 5,
+        });
+        expect(result.success).toBe(true);
+        expect(result.data.satisfactionRating).toBe(5);
+      });
+
+      test('rejects invalid satisfaction rating outside 1-5', () => {
+        const result = createTicketSchema.safeParse({
+          type: 'satisfaction_survey',
+          title: 'Rating',
+          description: 'Test',
+          satisfactionRating: 10,
+        });
+        expect(result.success).toBe(false);
+      });
+
+      test('rejects missing title or empty description', () => {
+        const result = createTicketSchema.safeParse({
+          type: 'improvement',
+          title: '',
+          description: '',
+        });
+        expect(result.success).toBe(false);
       });
     });
   });

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon, LogOut, User, Palette, ChevronRight, ArrowLeft, ShieldCheck, Mail, Laptop, ShieldAlert } from "lucide-react";
+import { Sun, Moon, LogOut, User, Palette, ChevronRight, ArrowLeft, ShieldCheck, Mail, Laptop, ShieldAlert, Bug, MessageSquare, Sparkles } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
+import FeedbackModal from "../components/FeedbackModal";
 
 const AVATAR_COLORS = [
   { id: "blue",   bg: "#0a84ff", label: "Ocean" },
@@ -31,6 +32,13 @@ export default function ProfileView({ onBack }) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showSignOutAllModal, setShowSignOutAllModal] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackInitialTab, setFeedbackInitialTab] = useState("bug");
+
+  const openFeedback = (tab = "bug") => {
+    setFeedbackInitialTab(tab);
+    setShowFeedbackModal(true);
+  };
 
   const handleSignOutAll = async () => {
     setSigningOutAll(true);
@@ -286,6 +294,43 @@ export default function ProfileView({ onBack }) {
               </div>
             </section>
 
+            {/* Support & Feedback Section */}
+            <section>
+              <p
+                className="px-1 mb-2 text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Support &amp; Feedback
+              </p>
+              <div
+                className="rounded-2xl overflow-hidden divide-y"
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  "--tw-divide-opacity": 1,
+                }}
+              >
+                <Row
+                  icon={Bug}
+                  label="Report a Bug or Issue"
+                  value="Get Help"
+                  onClick={() => openFeedback("bug")}
+                />
+                <Row
+                  icon={Sparkles}
+                  label="Request an Improvement"
+                  value="Suggest"
+                  onClick={() => openFeedback("improvement")}
+                />
+                <Row
+                  icon={MessageSquare}
+                  label="Rate Satisfaction &amp; Review"
+                  value="Survey"
+                  onClick={() => openFeedback("survey")}
+                />
+              </div>
+            </section>
+
             {/* Session & Security Section */}
             <section>
               <p
@@ -392,6 +437,12 @@ export default function ProfileView({ onBack }) {
         confirmText="Sign Out Everywhere"
         loading={signingOutAll}
         isDestructive
+      />
+
+      <FeedbackModal
+        isOpen={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        initialTab={feedbackInitialTab}
       />
     </div>
   );

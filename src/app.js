@@ -48,6 +48,7 @@ app.get('/health', (req, res) => {
 // Route registration
 app.use('/auth', authLimiter, require('./routes/auth.routes'));
 app.use('/groups', require('./routes/groups.routes'));
+app.use('/tickets', require('./routes/tickets.routes'));
 app.use('/', require('./routes/receipts.routes'));
 app.use('/', require('./routes/settlements.routes'));
 

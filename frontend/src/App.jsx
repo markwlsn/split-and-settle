@@ -226,7 +226,7 @@ function GlobalBalancesView() {
 }
 
 function AppContent() {
-  const { isAuthenticated, loading, isAdmin } = useAuth();
+  const { user, isAuthenticated, loading, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState(() => {
     const savedUser = localStorage.getItem("user");
     if (savedUser) {
@@ -246,12 +246,23 @@ function AppContent() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
 
-  // Automatically land on the admin space when authenticated as admin
+  // Synchronize activeTab based on authentication & role
   useEffect(() => {
-    if (isAdmin) {
-      setActiveTab((prev) => (prev === "groups" ? "admin" : prev));
+    if (!isAuthenticated || !user) {
+      setActiveTab("groups");
+      setSelectedGroup(null);
+      setSelectedReceiptId(null);
+      return;
     }
-  }, [isAdmin]);
+
+    if (isAdmin) {
+      // Admin accounts land automatically on the Admin Space
+      setActiveTab((prev) => (prev === "groups" ? "admin" : prev));
+    } else {
+      // Regular members MUST ALWAYS be in the User App ('groups', 'activity', etc.), never in admin
+      setActiveTab((prev) => (prev === "admin" ? "groups" : prev));
+    }
+  }, [isAuthenticated, isAdmin, user?.id]);
 
   if (loading) {
     return (
@@ -357,7 +368,25 @@ function AppContent() {
           </>
         );
       case "admin":
-        return <AdminView />;
+        if (!isAdmin) {
+          return (
+            <>
+              <DashboardHeader
+                activeTab="groups"
+                onTabChange={setActiveTab}
+                onOpenProfile={() => setActiveTab("profile")}
+                onOpenAdmin={() => {}}
+              />
+              <DashboardView
+                onSelectGroup={(g, rid) => {
+                  setSelectedGroup(g);
+                  if (rid) setSelectedReceiptId(rid);
+                }}
+              />
+            </>
+          );
+        }
+        return <AdminView onBack={() => setActiveTab("groups")} />;
       default:
         return null;
     }

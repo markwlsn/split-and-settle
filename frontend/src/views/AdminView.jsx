@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 
 export default function AdminView({ onBack, onOpenUserApp }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { showToast } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState('tickets'); // 'tickets' | 'bills' | 'users' | 'audit'
@@ -74,6 +74,10 @@ export default function AdminView({ onBack, onOpenUserApp }) {
 
   // Initial load
   const loadAdminData = async (isManualRefresh = false) => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
     if (isManualRefresh) setRefreshing(true);
     else setLoading(true);
 
@@ -306,6 +310,27 @@ export default function AdminView({ onBack, onOpenUserApp }) {
   const totalVolume = stats?.financials?.totalVolume ?? bills.reduce((acc, b) => acc + (Number(b.total_amount) || 0), 0);
   const openTicketsCount = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress').length;
   const csatAvg = stats?.csat?.average ?? 5.0;
+
+  if (!isAdmin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6 text-center" style={{ background: 'var(--bg-base)' }}>
+        <div className="rounded-3xl p-8 max-w-md shadow-xl text-center space-y-4" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+          <ShieldAlert className="h-16 w-16 text-rose-500 mx-auto" />
+          <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Access Restricted</h2>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            You are signed in as regular member <strong>{user?.email}</strong>. This operations console is reserved exclusively for system administrators.
+          </p>
+          <button
+            onClick={onBack}
+            className="w-full mt-4 px-5 py-2.5 rounded-xl font-semibold text-white shadow-sm transition active:scale-95 cursor-pointer"
+            style={{ background: 'var(--accent)' }}
+          >
+            Go to User Workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-16" style={{ background: 'var(--bg-base)' }}>

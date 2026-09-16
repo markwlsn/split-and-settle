@@ -359,23 +359,6 @@ export default function AdminView({ onBack, onOpenUserApp }) {
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
 
-            {/* Switch to User View (Optional) */}
-            {(onOpenUserApp || onBack) && (
-              <button
-                onClick={onOpenUserApp || onBack}
-                title="Switch to User Workspace to view expense groups"
-                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition active:scale-95 hover:opacity-85 shadow-sm"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <Users className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
-                <span className="hidden sm:inline">User Workspace</span>
-              </button>
-            )}
-
             {/* Direct Admin Sign Out */}
             <button
               onClick={logout}

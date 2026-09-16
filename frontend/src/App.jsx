@@ -357,12 +357,7 @@ function AppContent() {
           </>
         );
       case "admin":
-        return (
-          <AdminView
-            onBack={() => setActiveTab("groups")}
-            onOpenUserApp={() => setActiveTab("groups")}
-          />
-        );
+        return <AdminView />;
       default:
         return null;
     }

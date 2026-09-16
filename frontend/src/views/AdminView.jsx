@@ -32,8 +32,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-export default function AdminView({ onBack }) {
-  const { user } = useAuth();
+export default function AdminView({ onBack, onOpenUserApp }) {
+  const { user, logout } = useAuth();
   const { showToast } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState('tickets'); // 'tickets' | 'bills' | 'users' | 'audit'
@@ -236,49 +236,33 @@ export default function AdminView({ onBack }) {
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition active:scale-95 hover:opacity-85"
-                style={{
-                  background: 'var(--bg-elevated)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Exit Admin Space</span>
-              </button>
-            )}
-
-            <div className="flex items-center gap-2">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-xl text-white shadow-sm"
-                style={{ background: 'linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%)' }}
-              >
-                <Shield className="h-4 w-4" />
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-2xl text-white shadow-sm"
+              style={{ background: 'linear-gradient(135deg, #0a84ff 0%, #5e5ce6 100%)' }}
+            >
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                  Admin Command Space
+                </h1>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                  style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--accent)' }}
+                >
+                  System Admin
+                </span>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-sm sm:text-base font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-                    Admin Command Space
-                  </h1>
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                    style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--accent)' }}
-                  >
-                    RBAC Admin
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>System Operational • Least-Privilege Active</span>
-                </div>
+              <div className="flex items-center gap-1.5 text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>System Operational • Zero-Trust Auth Active</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick Refresh */}
             <button
               onClick={() => loadAdminData(true)}
               disabled={refreshing}
@@ -291,6 +275,38 @@ export default function AdminView({ onBack }) {
               }}
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+
+            {/* Switch to User View (Optional) */}
+            {(onOpenUserApp || onBack) && (
+              <button
+                onClick={onOpenUserApp || onBack}
+                title="Switch to User Workspace to view expense groups"
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition active:scale-95 hover:opacity-85 shadow-sm"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <Users className="h-3.5 w-3.5" style={{ color: 'var(--accent)' }} />
+                <span className="hidden sm:inline">User Workspace</span>
+              </button>
+            )}
+
+            {/* Direct Admin Sign Out */}
+            <button
+              onClick={logout}
+              title="Sign Out of Admin Console"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition active:scale-95 hover:opacity-85 shadow-sm"
+              style={{
+                background: 'rgba(255, 69, 58, 0.1)',
+                border: '1px solid rgba(255, 69, 58, 0.25)',
+                color: 'var(--destructive)',
+              }}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
         </div>

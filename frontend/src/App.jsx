@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
@@ -226,10 +226,32 @@ function GlobalBalancesView() {
 }
 
 function AppContent() {
-  const { isAuthenticated, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState("groups");
+  const { isAuthenticated, loading, isAdmin } = useAuth();
+  const [activeTab, setActiveTab] = useState(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        if (
+          parsed?.user_metadata?.role === "admin" ||
+          parsed?.app_metadata?.role === "admin" ||
+          parsed?.email?.toLowerCase() === "markwilsongeronilla01@gmail.com"
+        ) {
+          return "admin";
+        }
+      } catch (e) {}
+    }
+    return "groups";
+  });
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedReceiptId, setSelectedReceiptId] = useState(null);
+
+  // Automatically land on the admin space when authenticated as admin
+  useEffect(() => {
+    if (isAdmin) {
+      setActiveTab((prev) => (prev === "groups" ? "admin" : prev));
+    }
+  }, [isAdmin]);
 
   if (loading) {
     return (
@@ -335,7 +357,12 @@ function AppContent() {
           </>
         );
       case "admin":
-        return <AdminView onBack={() => setActiveTab("groups")} />;
+        return (
+          <AdminView
+            onBack={() => setActiveTab("groups")}
+            onOpenUserApp={() => setActiveTab("groups")}
+          />
+        );
       default:
         return null;
     }

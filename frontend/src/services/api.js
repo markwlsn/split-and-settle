@@ -104,6 +104,7 @@ export const api = {
       method: 'POST',
     }),
   getReceipt: (receiptId) => request(`/receipts/${receiptId}`),
+  getReceiptDetails: (receiptId) => request(`/receipts/${receiptId}`),
   getReceiptImageUrl: (receiptId) => request(`/receipts/${receiptId}/image-url`),
   updateReceipt: (receiptId, updates) =>
     request(`/receipts/${receiptId}`, {
@@ -134,6 +135,11 @@ export const api = {
       body: JSON.stringify(updates),
     }),
   setItemShares: (receiptId, itemId, shares) =>
+    request(`/receipts/${receiptId}/items/${itemId}/shares`, {
+      method: 'POST',
+      body: JSON.stringify({ shares }),
+    }),
+  updateItemShares: (receiptId, itemId, shares) =>
     request(`/receipts/${receiptId}/items/${itemId}/shares`, {
       method: 'POST',
       body: JSON.stringify({ shares }),

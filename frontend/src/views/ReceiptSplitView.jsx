@@ -242,13 +242,49 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-neutral-500">
-        <Loader2 className="h-8 w-8 animate-spin text-white mb-3" />
-        <p className="text-xs font-medium">Loading receipt inspector...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
+        <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Loading receipt inspector...</p>
       </div>
     );
   }
 
-  if (!receipt) return null;
+  if (!receipt) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+        <div
+          className="rounded-3xl p-8 max-w-md w-full shadow-lg text-center space-y-4"
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+        >
+          <AlertCircle className="h-12 w-12 text-rose-500 mx-auto" />
+          <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+            Unable to Load Receipt
+          </h3>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            {error || 'This receipt could not be retrieved from the server.'}
+          </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              onClick={onBack}
+              className="px-4 py-2 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            >
+              Back to Group
+            </button>
+            <button
+              onClick={() => {
+                setLoading(true);
+                loadReceiptData();
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow-sm transition active:scale-95 cursor-pointer"
+              style={{ background: 'var(--accent)' }}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const items = receipt.receipt_items || [];
   const isConfirmed = receipt.status === 'confirmed';

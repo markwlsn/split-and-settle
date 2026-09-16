@@ -1,4 +1,4 @@
-const { getSupabaseAnon } = require('../lib/supabaseClient');
+const { getSupabaseAnon, supabaseAdmin } = require('../lib/supabaseClient');
 
 async function register(req, res, next) {
   try {
@@ -41,4 +41,15 @@ async function login(req, res, next) {
   }
 }
 
-module.exports = { register, login };
+async function logoutAll(req, res, next) {
+  try {
+    if (req.userId) {
+      await supabaseAdmin.auth.admin.signOut(req.userId, 'global');
+    }
+    return res.json({ message: 'Signed out of all devices successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { register, login, logoutAll };

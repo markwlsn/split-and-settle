@@ -45,6 +45,11 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  logoutAll: () =>
+    request('/auth/logout-all', {
+      method: 'POST',
+    }),
+
   // Groups
   listGroups: () => request('/groups'),
   createGroup: (name, displayName, currency = 'USD') =>

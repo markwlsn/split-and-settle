@@ -1,7 +1,8 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon, LogOut, User, Palette, ChevronRight, ArrowLeft, ShieldCheck, Mail } from "lucide-react";
+import { Sun, Moon, LogOut, User, Palette, ChevronRight, ArrowLeft, ShieldCheck, Mail, Laptop, ShieldAlert } from "lucide-react";
+import ConfirmModal from "../components/ConfirmModal";
 
 const AVATAR_COLORS = [
   { id: "blue",   bg: "#0a84ff", label: "Ocean" },
@@ -20,7 +21,7 @@ function getInitials(name) {
 }
 
 export default function ProfileView({ onBack }) {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, logoutAll, updateUser } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
@@ -28,6 +29,20 @@ export default function ProfileView({ onBack }) {
     user?.user_metadata?.avatar_color || AVATAR_COLORS[0].bg
   );
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showSignOutAllModal, setShowSignOutAllModal] = useState(false);
+  const [signingOutAll, setSigningOutAll] = useState(false);
+
+  const handleSignOutAll = async () => {
+    setSigningOutAll(true);
+    try {
+      await logoutAll();
+    } catch (err) {
+      console.error("Failed to sign out of all devices:", err);
+    } finally {
+      setSigningOutAll(false);
+      setShowSignOutAllModal(false);
+    }
+  };
 
   const handleColorSelect = (bg) => {
     setAvatarColor(bg);
@@ -271,19 +286,93 @@ export default function ProfileView({ onBack }) {
               </div>
             </section>
 
-            {/* Session / Danger Zone */}
+            {/* Session & Security Section */}
             <section>
               <p
                 className="px-1 mb-2 text-xs font-semibold uppercase tracking-wider"
                 style={{ color: "var(--text-secondary)" }}
               >
-                Session
+                Session &amp; Security
               </p>
               <div
-                className="rounded-2xl overflow-hidden"
-                style={{ background: "var(--bg-surface)", border: "1px solid var(--border)" }}
+                className="rounded-2xl overflow-hidden divide-y"
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  "--tw-divide-opacity": 1,
+                }}
               >
-                <Row icon={LogOut} label="Sign Out of All Devices" danger onClick={logout} />
+                {/* Current Device / Single Sign Out */}
+                <div className="flex items-center justify-between p-4 gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+                      style={{ background: "var(--bg-elevated)", color: "var(--text-primary)" }}
+                    >
+                      <Laptop className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                          Current Session
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Active
+                        </span>
+                      </div>
+                      <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                        Sign out of this device only
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer shadow-sm"
+                    style={{
+                      background: "var(--bg-elevated)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-primary)",
+                    }}
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+
+                {/* All Devices / Global Sign Out */}
+                <div className="flex items-center justify-between p-4 gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+                      style={{ background: "var(--destructive-light)", color: "var(--destructive)" }}
+                    >
+                      <ShieldAlert className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                        All Devices
+                      </span>
+                      <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                        Invalidate logins on all browsers &amp; devices
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSignOutAllModal(true)}
+                    className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer shadow-sm"
+                    style={{
+                      background: "var(--destructive-light)",
+                      border: "1px solid rgba(239, 68, 68, 0.2)",
+                      color: "var(--destructive)",
+                    }}
+                  >
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    <span>Sign Out Everywhere</span>
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -293,6 +382,17 @@ export default function ProfileView({ onBack }) {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showSignOutAllModal}
+        onClose={() => !signingOutAll && setShowSignOutAllModal(false)}
+        onConfirm={handleSignOutAll}
+        title="Sign out of all devices?"
+        message="This will immediately invalidate active sessions across all devices and browsers. You will need to sign back in everywhere."
+        confirmText="Sign Out Everywhere"
+        loading={signingOutAll}
+        isDestructive
+      />
     </div>
   );
 }

@@ -65,6 +65,15 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('user');
   };
 
+  const logoutAll = async () => {
+    try {
+      await api.logoutAll();
+    } catch (e) {
+      console.warn('Logout all error:', e);
+    }
+    logout();
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -76,6 +85,7 @@ export function AuthProvider({ children }) {
         register,
         updateUser,
         logout,
+        logoutAll,
       }}
     >
       {children}

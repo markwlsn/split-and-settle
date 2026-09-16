@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext();
 
@@ -7,8 +7,8 @@ export function ThemeProvider({ children }) {
     // 1. Check localStorage
     const saved = localStorage.getItem("ss-theme");
     if (saved === "light" || saved === "dark") return saved;
-    // 2. Respect OS preference
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    // 2. Default to light mode
+    return "light";
   });
 
   useEffect(() => {

@@ -7,19 +7,19 @@
    Apple HIG-inspired, dark-first. Light mode via html.light
    ============================================================ */
 
-/* DARK MODE (default) */
+/* DARK MODE (soft Apple graphite & space gray, not pitch black) */
 :root {
   /* Backgrounds */
-  --bg-base:      #000000;   /* page background */
-  --bg-surface:   #111111;   /* cards, modals */
-  --bg-elevated:  #1c1c1e;   /* inputs, hover fills */
-  --bg-overlay:   rgba(0,0,0,0.85);
+  --bg-base:      #141517;   /* soft charcoal/graphite page background */
+  --bg-surface:   #1c1d21;   /* cards, modals */
+  --bg-elevated:  #26272e;   /* inputs, hover fills */
+  --bg-overlay:   rgba(14, 15, 18, 0.85);
 
   /* Text */
-  --text-primary:     #ffffff;
-  --text-secondary:   #8e8e93;   /* iOS gray 2 */
-  --text-tertiary:    #48484a;   /* iOS gray 4 */
-  --text-placeholder: #3a3a3c;
+  --text-primary:     #f5f5f7;
+  --text-secondary:   #9da0a8;   /* soft slate gray */
+  --text-tertiary:    #64666f;
+  --text-placeholder: #4e505a;
 
   /* Borders */
   --border:       rgba(255,255,255,0.09);
@@ -39,21 +39,21 @@
   --destructive-light: rgba(255,69,58,0.15);
 
   /* Interactive */
-  --btn-primary-bg:   #ffffff;
-  --btn-primary-text: #000000;
-  --btn-secondary-bg: #1c1c1e;
-  --btn-secondary-text: #ffffff;
-  --btn-ghost-text:   #8e8e93;
+  --btn-primary-bg:   #f5f5f7;
+  --btn-primary-text: #141517;
+  --btn-secondary-bg: #26272e;
+  --btn-secondary-text: #f5f5f7;
+  --btn-ghost-text:   #9da0a8;
 
   /* Surfaces */
-  --card-bg:      #111111;
-  --card-border:  rgba(255,255,255,0.09);
-  --modal-bg:     rgba(18,18,18,0.97);
-  --tab-active-bg: #1c1c1e;
-  --tab-bar-bg:   rgba(10,10,10,0.92);
+  --card-bg:      #1c1d21;
+  --card-border:  rgba(255,255,255,0.08);
+  --modal-bg:     rgba(28, 29, 34, 0.98);
+  --tab-active-bg: #2a2b33;
+  --tab-bar-bg:   rgba(20, 21, 25, 0.92);
 
   /* Scrollbar */
-  --scrollbar-thumb: #2c2c2e;
+  --scrollbar-thumb: #363842;
 }
 
 /* LIGHT MODE */

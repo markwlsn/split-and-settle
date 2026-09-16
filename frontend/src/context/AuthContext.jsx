@@ -74,6 +74,25 @@ export function AuthProvider({ children }) {
     logout();
   };
 
+  const isAdmin =
+    user?.user_metadata?.role === 'admin' ||
+    user?.app_metadata?.role === 'admin' ||
+    user?.email?.toLowerCase() === 'markwilsongeronilla01@gmail.com';
+
+  const toggleAdminRole = () => {
+    if (!user) return;
+    const currentRole = user?.user_metadata?.role;
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    const updated = {
+      ...user,
+      user_metadata: {
+        ...(user.user_metadata || {}),
+        role: newRole,
+      },
+    };
+    updateUser(updated);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -81,6 +100,8 @@ export function AuthProvider({ children }) {
         token,
         loading,
         isAuthenticated: !!token,
+        isAdmin,
+        toggleAdminRole,
         login,
         register,
         updateUser,

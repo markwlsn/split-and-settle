@@ -158,4 +158,23 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getMyTickets: () => request('/tickets/my-tickets'),
+
+  // Admin Space & Security
+  getAdminStats: () => request('/admin/stats'),
+  getAdminTickets: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/admin/tickets${query ? `?${query}` : ''}`);
+  },
+  updateAdminTicket: (ticketId, data) =>
+    request(`/admin/tickets/${ticketId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  getAdminBills: () => request('/admin/bills'),
+  getAdminUsers: () => request('/admin/users'),
+  revokeUserSessions: (userId) =>
+    request(`/admin/users/${userId}/revoke-sessions`, {
+      method: 'POST',
+    }),
+  getAdminAuditLogs: () => request('/admin/audit-logs'),
 };

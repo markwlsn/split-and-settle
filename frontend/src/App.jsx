@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
@@ -8,7 +8,8 @@ import DashboardView from "./views/DashboardView";
 import GroupDetailView from "./views/GroupDetailView";
 import ReceiptSplitView from "./views/ReceiptSplitView";
 import ProfileView from "./views/ProfileView";
-import { Loader2, Receipt, ChevronLeft, Sparkles, Sun, Moon, Users, Bell, Scale } from "lucide-react";
+import AdminView from "./views/AdminView";
+import { Loader2, Receipt, ChevronLeft, Sparkles, Sun, Moon, Users, Bell, Scale, Shield } from "lucide-react";
 
 function InGroupHeader({ title, subtitle, onBack }) {
   return (
@@ -41,8 +42,8 @@ function InGroupHeader({ title, subtitle, onBack }) {
   );
 }
 
-function DashboardHeader({ activeTab, onTabChange, onOpenProfile }) {
-  const { user } = useAuth();
+function DashboardHeader({ activeTab, onTabChange, onOpenProfile, onOpenAdmin }) {
+  const { user, isAdmin } = useAuth();
   const { isDark, toggleTheme } = useTheme();
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
@@ -127,6 +128,22 @@ function DashboardHeader({ activeTab, onTabChange, onOpenProfile }) {
 
         {/* Right: Quick Theme Switcher & Profile Chip */}
         <div className="flex items-center gap-2.5 sm:gap-3">
+          {isAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              title="Open Admin Command Space"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition active:scale-95 hover:opacity-90 cursor-pointer shadow-sm"
+              style={{
+                background: activeTab === "admin" ? "var(--accent)" : "rgba(10, 132, 255, 0.12)",
+                color: activeTab === "admin" ? "#fff" : "var(--accent)",
+                border: "1px solid var(--accent-light)",
+              }}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Admin Space</span>
+            </button>
+          )}
+
           <button
             onClick={toggleTheme}
             title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -268,6 +285,7 @@ function AppContent() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onOpenProfile={() => setActiveTab("profile")}
+              onOpenAdmin={() => setActiveTab("admin")}
             />
             <DashboardView
               onSelectGroup={(g, rid) => {
@@ -284,6 +302,7 @@ function AppContent() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onOpenProfile={() => setActiveTab("profile")}
+              onOpenAdmin={() => setActiveTab("admin")}
             />
             <ActivityView />
           </>
@@ -295,6 +314,7 @@ function AppContent() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onOpenProfile={() => setActiveTab("profile")}
+              onOpenAdmin={() => setActiveTab("admin")}
             />
             <GlobalBalancesView />
           </>
@@ -306,10 +326,16 @@ function AppContent() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onOpenProfile={() => setActiveTab("profile")}
+              onOpenAdmin={() => setActiveTab("admin")}
             />
-            <ProfileView onBack={() => setActiveTab("groups")} />
+            <ProfileView
+              onBack={() => setActiveTab("groups")}
+              onOpenAdmin={() => setActiveTab("admin")}
+            />
           </>
         );
+      case "admin":
+        return <AdminView onBack={() => setActiveTab("groups")} />;
       default:
         return null;
     }
@@ -318,7 +344,9 @@ function AppContent() {
   return (
     <div style={{ background: "var(--bg-base)", minHeight: "100vh" }}>
       <div className="animate-fade-in">{renderTab()}</div>
-      <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      {activeTab !== "admin" && (
+        <BottomTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
     </div>
   );
 }

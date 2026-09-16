@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon, LogOut, User, Palette, ChevronRight, ArrowLeft, ShieldCheck, Mail, Laptop, ShieldAlert, Bug, MessageSquare, Sparkles } from "lucide-react";
+import { Sun, Moon, LogOut, User, Palette, ChevronRight, ArrowLeft, ShieldCheck, Mail, Laptop, ShieldAlert, Bug, MessageSquare, Sparkles, Shield, Activity } from "lucide-react";
 import ConfirmModal from "../components/ConfirmModal";
 import FeedbackModal from "../components/FeedbackModal";
 
@@ -21,8 +21,8 @@ function getInitials(name) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
-export default function ProfileView({ onBack }) {
-  const { user, logout, logoutAll, updateUser } = useAuth();
+export default function ProfileView({ onBack, onOpenAdmin }) {
+  const { user, logout, logoutAll, updateUser, isAdmin, toggleAdminRole } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
@@ -330,6 +330,64 @@ export default function ProfileView({ onBack }) {
                   value="Survey"
                   onClick={() => openFeedback("survey")}
                 />
+              </div>
+            </section>
+
+            {/* System Administration & Security Section */}
+            <section>
+              <p
+                className="px-1 mb-2 text-xs font-semibold uppercase tracking-wider"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                System Administration
+              </p>
+              <div
+                className="rounded-2xl overflow-hidden divide-y"
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border)",
+                  "--tw-divide-opacity": 1,
+                }}
+              >
+                <Row
+                  icon={Shield}
+                  label="Admin Command Space"
+                  value={isAdmin ? "Launch Console" : "Enable Admin Mode"}
+                  onClick={isAdmin ? onOpenAdmin : toggleAdminRole}
+                />
+                <div className="flex items-center justify-between p-4 gap-3">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+                      style={{
+                        background: isAdmin ? "rgba(10, 132, 255, 0.15)" : "var(--bg-elevated)",
+                        color: isAdmin ? "var(--accent)" : "var(--text-secondary)",
+                      }}
+                    >
+                      <Activity className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        Admin Role Simulation
+                      </span>
+                      <p className="text-xs truncate mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                        {isAdmin ? "Administrator Privileges Active" : "Regular Member Account"}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleAdminRole}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition active:scale-95 cursor-pointer"
+                    style={{
+                      background: isAdmin ? "var(--accent)" : "var(--bg-elevated)",
+                      color: isAdmin ? "#fff" : "var(--text-primary)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <span>{isAdmin ? "Admin Active" : "Toggle Admin"}</span>
+                  </button>
+                </div>
               </div>
             </section>
 

@@ -126,6 +126,16 @@ const createTicketSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
+const updateTicketSchema = z.object({
+  status: z.enum(['open', 'in_progress', 'resolved', 'closed'], {
+    message: 'Status must be open, in_progress, resolved, or closed',
+  }).optional(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent'], {
+    message: 'Priority must be low, medium, high, or urgent',
+  }).optional(),
+  adminNotes: z.string().max(2000, { message: 'Admin notes must not exceed 2000 characters' }).optional(),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -141,4 +151,5 @@ module.exports = {
   autoSplitSchema,
   paymentSchema,
   createTicketSchema,
+  updateTicketSchema,
 };

@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { Sun, Moon, LogOut, User, Palette, ChevronRight } from "lucide-react";
@@ -20,7 +20,7 @@ function getInitials(name) {
 }
 
 export default function ProfileView() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { theme, toggleTheme, isDark } = useTheme();
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "User";
@@ -28,6 +28,20 @@ export default function ProfileView() {
     user?.user_metadata?.avatar_color || AVATAR_COLORS[0].bg
   );
   const [showColorPicker, setShowColorPicker] = useState(false);
+
+  const handleColorSelect = (bg) => {
+    setAvatarColor(bg);
+    setShowColorPicker(false);
+    if (user && updateUser) {
+      updateUser({
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          avatar_color: bg,
+        },
+      });
+    }
+  };
 
   const Row = ({ icon: Icon, label, value, onClick, danger }) => (
     <button
@@ -174,7 +188,7 @@ export default function ProfileView() {
                 {AVATAR_COLORS.map(({ id, bg, label }) => (
                   <button
                     key={id}
-                    onClick={() => { setAvatarColor(bg); setShowColorPicker(false); }}
+                    onClick={() => handleColorSelect(bg)}
                     title={label}
                     className="relative h-8 w-8 rounded-full transition-transform hover:scale-110 active:scale-95"
                     style={{ background: bg }}

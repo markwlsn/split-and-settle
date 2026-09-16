@@ -5,6 +5,7 @@ const registerSchema = z.object({
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
   name: z.string().min(1, { message: 'Name is required' }),
   phone: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 const loginSchema = z.object({
@@ -28,7 +29,7 @@ const updateGroupSchema = z.object({
 
 const joinGroupSchema = z.object({
   inviteCode: z.string().min(4, { message: 'Invite code must be at least 4 characters' }).toUpperCase(),
-  displayName: z.string().min(1, { message: 'Display name is required' }),
+  displayName: z.string().min(1, { message: 'Display name must not be empty' }).optional(),
 });
 
 const memberSchema = z.object({

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Users, PlusCircle, KeyRound, ChevronRight, Sparkles, Loader2, QrCode, Receipt } from "lucide-react";
 import { api } from "../services/api";
 import CreateGroupModal from "../components/CreateGroupModal";
@@ -63,6 +63,17 @@ export default function DashboardView({ onSelectGroup }) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isJoinOpen, setIsJoinOpen] = useState(false);
   const [qrGroup, setQrGroup] = useState(null);
+  const [initialJoinCode, setInitialJoinCode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("join") || "";
+  });
+
+  useEffect(() => {
+    if (initialJoinCode) {
+      setIsJoinOpen(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [initialJoinCode]);
 
   useEffect(() => {
     api.listGroups()
@@ -177,7 +188,11 @@ export default function DashboardView({ onSelectGroup }) {
 
       <JoinGroupModal
         isOpen={isJoinOpen}
-        onClose={() => setIsJoinOpen(false)}
+        initialCode={initialJoinCode}
+        onClose={() => {
+          setIsJoinOpen(false);
+          setInitialJoinCode("");
+        }}
         onGroupJoined={(joinedGroup) => {
           setGroups([joinedGroup, ...groups]);
           onSelectGroup(joinedGroup);

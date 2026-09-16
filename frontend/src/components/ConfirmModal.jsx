@@ -1,33 +1,49 @@
-import React from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+﻿import React from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 
 export default function ConfirmModal({
   isOpen,
   onClose,
   onConfirm,
-  title = 'Are you sure?',
-  message = 'This action cannot be undone.',
-  confirmText = 'Delete',
-  cancelText = 'Cancel',
+  title = "Are you sure?",
+  message = "This action cannot be undone.",
+  confirmText = "Delete",
+  cancelText = "Cancel",
   isDestructive = true,
   loading = false,
 }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fadeIn">
-      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-neutral-900/95 p-6 shadow-2xl backdrop-blur-xl">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "var(--bg-overlay)", backdropFilter: "blur(16px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-modal-title"
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up"
+        style={{ background: "var(--modal-bg)", border: "1px solid var(--border)" }}
+      >
         {/* Warning Icon */}
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+        <div
+          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl"
+          style={{
+            background: isDestructive ? "var(--destructive-light)" : "var(--accent-light)",
+            color: isDestructive ? "var(--destructive)" : "var(--accent)",
+          }}
+        >
           <AlertTriangle className="h-6 w-6 stroke-[2.2]" />
         </div>
 
         {/* Title & Message */}
         <div className="text-center mb-6">
-          <h3 className="text-lg font-bold tracking-tight text-white mb-2">
+          <h3 id="confirm-modal-title" className="text-base font-bold tracking-tight mb-2" style={{ color: "var(--text-primary)" }}>
             {title}
           </h3>
-          <p className="text-sm text-neutral-400 leading-relaxed">
+          <p className="text-xs leading-relaxed" style={{ color: "var(--text-secondary)" }}>
             {message}
           </p>
         </div>
@@ -38,7 +54,7 @@ export default function ConfirmModal({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="flex-1 rounded-xl border border-neutral-800 bg-neutral-950 py-2.5 text-sm font-semibold text-neutral-300 hover:bg-neutral-800 hover:text-white transition active:scale-95 disabled:opacity-50"
+            className="btn-secondary flex-1 py-2.5 text-xs font-semibold"
           >
             {cancelText}
           </button>
@@ -46,17 +62,13 @@ export default function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition active:scale-95 disabled:opacity-50 ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-semibold rounded-xl transition active:scale-95 disabled:opacity-50 ${
               isDestructive
-                ? 'bg-red-600 text-white hover:bg-red-500 shadow-lg shadow-red-600/20'
-                : 'bg-white text-black hover:bg-neutral-200'
+                ? "bg-red-600 text-white hover:bg-red-500 shadow-md shadow-red-600/20"
+                : "btn-primary"
             }`}
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              confirmText
-            )}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : confirmText}
           </button>
         </div>
       </div>

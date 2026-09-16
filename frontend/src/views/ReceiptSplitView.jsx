@@ -39,8 +39,9 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
   const [error, setError] = useState('');
   const [copiedCode, setCopiedCode] = useState(false);
 
-  // Custom Deletion Modals
+  // Custom Deletion & Action Modals
   const [showDeleteReceiptModal, setShowDeleteReceiptModal] = useState(false);
+  const [showReparseModal, setShowReparseModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -74,7 +75,8 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
-  const handleParseReceipt = async () => {
+  const executeParseReceipt = async () => {
+    setShowReparseModal(false);
     setParsing(true);
     setError('');
     try {
@@ -94,6 +96,14 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
     }
   };
 
+  const handleRequestReparse = () => {
+    if (receipt?.receipt_items && receipt.receipt_items.length > 0) {
+      setShowReparseModal(true);
+    } else {
+      executeParseReceipt();
+    }
+  };
+
   const handleFetchImageUrl = async () => {
     if (imageUrl) {
       setShowImage(!showImage);
@@ -108,7 +118,7 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
     }
   };
 
-  const handleAutoSplitAll = async () => {
+  const handleAutoSplit = async (mode = 'EQUAL_ALL') => {
     if (members.length <= 1) {
       showToast('Invite at least 1 other member to the group to split expenses!', 'info');
       return;
@@ -116,9 +126,10 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
 
     try {
       setError('');
-      await api.autoSplitReceipt(receiptId, 'EQUAL_ALL');
+      await api.autoSplitReceipt(receiptId, mode);
       await loadReceiptData();
-      showToast(`All items split equally among ${members.length} members!`, 'success');
+      const modeText = mode === 'PROPORTIONAL_TAX_TIP' ? 'proportionally with tax & tip' : 'equally';
+      showToast(`All items split ${modeText} among ${members.length} members!`, 'success');
     } catch (err) {
       setError(err.message || 'Auto split failed');
       showToast(err.message || 'Auto split failed', 'error');
@@ -281,6 +292,18 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
             >
               <ImageIcon className="h-3.5 w-3.5 text-neutral-400" />
               <span>{showImage ? 'Hide Photo' : 'View Photo'}</span>
+            </button>
+          )}
+
+          {hasImage && isParsed && !isConfirmed && (
+            <button
+              onClick={handleRequestReparse}
+              disabled={parsing}
+              title="Re-scan receipt photo with Gemini Vision"
+              className="flex items-center gap-1.5 rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:border-neutral-600 hover:text-white transition"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>{parsing ? 'Scanning...' : 'Re-scan'}</span>
             </button>
           )}
 
@@ -451,7 +474,7 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={handleAutoSplitAll}
+                  onClick={() => handleAutoSplit('EQUAL_ALL')}
                   disabled={isSoloMember}
                   title={isSoloMember ? 'Invite other members to split equally' : 'Split all items equally among members'}
                   className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
@@ -462,6 +485,20 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
                 >
                   <Layers className={`h-3.5 w-3.5 ${isSoloMember ? 'text-neutral-500' : 'text-white'}`} />
                   <span>Split All Equally {isSoloMember ? '(Needs 2+ Members)' : ''}</span>
+                </button>
+
+                <button
+                  onClick={() => handleAutoSplit('PROPORTIONAL_TAX_TIP')}
+                  disabled={isSoloMember}
+                  title={isSoloMember ? 'Invite other members to split' : 'Split items proportionally with tax & tip'}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                    isSoloMember
+                      ? 'border-neutral-800 bg-neutral-900 text-neutral-500 cursor-not-allowed opacity-60'
+                      : 'border-neutral-700 bg-neutral-800 text-neutral-200 hover:bg-neutral-700 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className={`h-3.5 w-3.5 ${isSoloMember ? 'text-neutral-500' : 'text-white'}`} />
+                  <span>Proportional (Tax &amp; Tip)</span>
                 </button>
 
                 <button
@@ -670,6 +707,19 @@ export default function ReceiptSplitView({ receiptId, currency = 'USD', onBack, 
         cancelText="Keep Receipt"
         isDestructive={true}
         loading={deleting}
+      />
+
+      {/* Re-parse Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showReparseModal}
+        onClose={() => setShowReparseModal(false)}
+        onConfirm={executeParseReceipt}
+        title="Re-scan receipt with Gemini?"
+        message="Re-scanning will replace all current items and delete any existing split shares for this receipt. This action cannot be undone."
+        confirmText="Re-scan &amp; Reset Splits"
+        cancelText="Cancel"
+        isDestructive={true}
+        loading={parsing}
       />
     </div>
   );

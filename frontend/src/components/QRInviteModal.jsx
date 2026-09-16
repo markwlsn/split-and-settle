@@ -1,19 +1,20 @@
-﻿import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { X, Copy, Check, Download, Share2, QrCode } from "lucide-react";
+import { useTheme } from "../context/ThemeContext";
 
 export default function QRInviteModal({ group, isOpen, onClose }) {
   const canvasRef = useRef(null);
   const [copied, setCopied] = useState(false);
   const [shareSupported] = useState(() => Boolean(navigator.share));
+  const { isDark } = useTheme();
 
   const inviteLink = group?.invite_code
-    ? `${window.location.origin}/join/${group.invite_code}`
+    ? `${window.location.origin}?join=${group.invite_code}`
     : "";
 
   useEffect(() => {
     if (!isOpen || !canvasRef.current || !group?.invite_code) return;
-    const isDark = !document.documentElement.classList.contains("light");
     QRCode.toCanvas(canvasRef.current, inviteLink, {
       width: 240,
       margin: 2,
@@ -22,7 +23,7 @@ export default function QRInviteModal({ group, isOpen, onClose }) {
         light: isDark ? "#111111" : "#ffffff",
       },
     });
-  }, [isOpen, group, inviteLink]);
+  }, [isOpen, group, inviteLink, isDark]);
 
   if (!isOpen || !group) return null;
 

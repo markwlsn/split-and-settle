@@ -99,6 +99,16 @@ describe('Hackathon Features Unit Tests', () => {
         });
         expect(result.success).toBe(false);
       });
+
+      test('valid invite code without display name passes (optional display name)', () => {
+        const result = joinGroupSchema.safeParse({
+          inviteCode: 'trip26',
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.inviteCode).toBe('TRIP26');
+        }
+      });
     });
 
     describe('updateReceiptSchema', () => {

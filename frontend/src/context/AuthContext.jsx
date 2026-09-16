@@ -13,11 +13,21 @@ export function AuthProvider({ children }) {
     const savedToken = localStorage.getItem('token');
     if (savedToken && savedUser) {
       try {
+        // Validate JWT expiration
+        const parts = savedToken.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          if (payload.exp && payload.exp * 1000 < Date.now()) {
+            throw new Error('Token expired');
+          }
+        }
         setUser(JSON.parse(savedUser));
         setToken(savedToken);
       } catch (e) {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        setUser(null);
+        setToken(null);
       }
     }
     setLoading(false);
@@ -32,8 +42,8 @@ export function AuthProvider({ children }) {
     return res;
   };
 
-  const register = async (email, password, name, phone) => {
-    const res = await api.register(email, password, name, phone);
+  const register = async (email, password, name, phone, metadata) => {
+    const res = await api.register(email, password, name, phone, metadata);
     if (res.accessToken) {
       setToken(res.accessToken);
       setUser(res.user);
@@ -41,6 +51,11 @@ export function AuthProvider({ children }) {
       localStorage.setItem('user', JSON.stringify(res.user));
     }
     return res;
+  };
+
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   const logout = () => {
@@ -59,6 +74,7 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!token,
         login,
         register,
+        updateUser,
         logout,
       }}
     >

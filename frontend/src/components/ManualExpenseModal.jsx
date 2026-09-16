@@ -1,41 +1,46 @@
-import React, { useState } from 'react';
-import { X, Plus, Trash2, DollarSign, Tag, Calendar, User, FileText, Loader2, Sparkles } from 'lucide-react';
-import { api } from '../services/api';
-import { useToast } from '../context/ToastContext';
-import { getCurrencySymbol } from '../utils/currency';
+﻿import React, { useState } from "react";
+import { X, Plus, Trash2, FileText, Loader2 } from "lucide-react";
+import { api } from "../services/api";
+import { useToast } from "../context/ToastContext";
+import { getCurrencySymbol } from "../utils/currency";
 
 const CATEGORIES = [
-  'Food & Dining',
-  'Groceries',
-  'Transport',
-  'Entertainment',
-  'Lodging',
-  'Utilities',
-  'Shopping',
-  'Other',
+  "Food & Dining",
+  "Groceries",
+  "Transport",
+  "Entertainment",
+  "Lodging",
+  "Utilities",
+  "Shopping",
+  "Other",
 ];
 
-export default function ManualExpenseModal({ isOpen, onClose, groupId, members, currency = 'USD', onExpenseCreated }) {
+export default function ManualExpenseModal({
+  isOpen,
+  onClose,
+  groupId,
+  members,
+  currency = "USD",
+  onExpenseCreated,
+}) {
   const { showToast } = useToast();
-  const [merchantName, setMerchantName] = useState('');
-  const [category, setCategory] = useState('Food & Dining');
-  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]);
-  const [paidBy, setPaidBy] = useState('');
-  const [notes, setNotes] = useState('');
-  const [taxAmount, setTaxAmount] = useState('0');
-  const [tipAmount, setTipAmount] = useState('0');
-  const [items, setItems] = useState([
-    { name: '', price: '', quantity: 1 },
-  ]);
+  const [merchantName, setMerchantName] = useState("");
+  const [category, setCategory] = useState("Food & Dining");
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0]);
+  const [paidBy, setPaidBy] = useState("");
+  const [notes, setNotes] = useState("");
+  const [taxAmount, setTaxAmount] = useState("0");
+  const [tipAmount, setTipAmount] = useState("0");
+  const [items, setItems] = useState([{ name: "", price: "", quantity: 1 }]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   if (!isOpen) return null;
 
   const symbol = getCurrencySymbol(currency);
 
   const handleAddItemRow = () => {
-    setItems([...items, { name: '', price: '', quantity: 1 }]);
+    setItems([...items, { name: "", price: "", quantity: 1 }]);
   };
 
   const handleRemoveItemRow = (index) => {
@@ -63,23 +68,25 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!merchantName.trim()) {
-      setError('Please enter a merchant or expense title');
+      setError("Merchant or Expense Name is required");
       return;
     }
 
-    const validItems = items.map((i) => ({
-      name: i.name.trim() || 'Item',
-      price: parseFloat(i.price) || 0,
-      quantity: parseInt(i.quantity, 10) || 1,
-    }));
+    const validItems = items
+      .map((item) => ({
+        name: item.name.trim(),
+        price: parseFloat(item.price) || 0,
+        quantity: parseInt(item.quantity, 10) || 1,
+      }))
+      .filter((item) => item.name && item.price > 0);
 
-    if (validItems.some((i) => i.price <= 0)) {
-      setError('All items must have a positive price greater than 0');
+    if (validItems.length === 0) {
+      setError("Please provide at least one valid item with a name and price > 0");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const payload = {
@@ -94,33 +101,51 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
       };
 
       const res = await api.createManualExpense(groupId, payload);
-      showToast(`Expense "${merchantName}" created!`, 'success');
+      showToast(`Expense "${merchantName}" created!`, "success");
       onExpenseCreated(res.receipt);
       onClose();
     } catch (err) {
-      setError(err.message || 'Failed to create expense');
+      setError(err.message || "Failed to create expense");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-fadeIn">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-white/10 bg-neutral-900/95 shadow-2xl backdrop-blur-xl overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "var(--bg-overlay)", backdropFilter: "blur(16px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="manual-expense-title"
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
+        style={{ background: "var(--modal-bg)", border: "1px solid var(--border)" }}
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-neutral-800 p-6">
+        <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid var(--border)" }}>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white border border-white/15">
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-2xl"
+              style={{ background: "var(--accent-light)", color: "var(--accent)" }}
+            >
               <FileText className="h-5 w-5 stroke-[2.2]" />
             </div>
             <div>
-              <h3 className="font-bold text-white">Add Expense Manually</h3>
-              <p className="text-xs text-neutral-400">Add an expense with itemized lines without a photo</p>
+              <h3 id="manual-expense-title" className="font-bold text-sm" style={{ color: "var(--text-primary)" }}>
+                Add Expense Manually
+              </h3>
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Itemize costs without needing a photo
+              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
+            className="rounded-lg p-1.5 transition"
+            style={{ color: "var(--text-secondary)" }}
           >
             <X className="h-5 w-5" />
           </button>
@@ -129,7 +154,14 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
         {/* Scrollable Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
           {error && (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-3.5 text-xs font-medium text-red-400">
+            <div
+              className="rounded-xl p-3.5 text-xs font-medium"
+              style={{
+                background: "var(--destructive-light)",
+                color: "var(--destructive)",
+                border: "1px solid var(--destructive-light)",
+              }}
+            >
               {error}
             </div>
           )}
@@ -137,7 +169,7 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
           {/* Top metadata grid */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                 Merchant / Description *
               </label>
               <input
@@ -146,18 +178,18 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
                 placeholder="e.g. Costco, Tokyo Diner, Uber"
                 value={merchantName}
                 onChange={(e) => setMerchantName(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white placeholder-neutral-500 focus:border-white focus:outline-none focus:ring-1 focus:ring-white/20 transition"
+                className="input-field w-full px-3.5 py-2.5 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                 Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none focus:ring-1 focus:ring-white/20 transition"
+                className="input-field w-full px-3.5 py-2.5 text-sm"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
@@ -170,7 +202,7 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                 Date
               </label>
               <input
@@ -178,18 +210,18 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
                 required
                 value={receiptDate}
                 onChange={(e) => setReceiptDate(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none focus:ring-1 focus:ring-white/20 transition"
+                className="input-field w-full px-3.5 py-2.5 text-sm"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
                 Paid By
               </label>
               <select
                 value={paidBy}
                 onChange={(e) => setPaidBy(e.target.value)}
-                className="w-full rounded-xl border border-neutral-800 bg-black px-3.5 py-2.5 text-sm text-white focus:border-white focus:outline-none focus:ring-1 focus:ring-white/20 transition"
+                className="input-field w-full px-3.5 py-2.5 text-sm"
               >
                 <option value="">You (default)</option>
                 {members.map((m) => (
@@ -202,15 +234,15 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
           </div>
 
           {/* Itemized Lines */}
-          <div className="space-y-3 pt-2 border-t border-neutral-800">
+          <div className="space-y-3 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-white uppercase tracking-wider">
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
                 Itemized Lines
               </span>
               <button
                 type="button"
                 onClick={handleAddItemRow}
-                className="flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-900 px-2.5 py-1 text-xs font-semibold text-neutral-300 hover:border-neutral-600 hover:text-white transition"
+                className="btn-secondary flex items-center gap-1 px-2.5 py-1 text-xs font-semibold"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Add Row</span>
@@ -225,11 +257,11 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
                     required
                     placeholder={`Item ${idx + 1} name`}
                     value={item.name}
-                    onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                    className="flex-1 rounded-xl border border-neutral-800 bg-black px-3 py-2 text-xs text-white placeholder-neutral-500 focus:border-white focus:outline-none transition"
+                    onChange={(e) => handleItemChange(idx, "name", e.target.value)}
+                    className="input-field flex-1 px-3 py-2 text-xs"
                   />
                   <div className="relative w-28">
-                    <span className="absolute left-2.5 top-2 text-xs text-neutral-500 font-mono">
+                    <span className="absolute left-2.5 top-2 text-xs font-mono" style={{ color: "var(--text-tertiary)" }}>
                       {symbol}
                     </span>
                     <input
@@ -239,22 +271,23 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
                       required
                       placeholder="0.00"
                       value={item.price}
-                      onChange={(e) => handleItemChange(idx, 'price', e.target.value)}
-                      className="w-full font-mono rounded-xl border border-neutral-800 bg-black pl-6 pr-2.5 py-2 text-xs text-white focus:border-white focus:outline-none transition"
+                      onChange={(e) => handleItemChange(idx, "price", e.target.value)}
+                      className="input-field w-full font-mono pl-6 pr-2.5 py-2 text-xs"
                     />
                   </div>
                   <input
                     type="number"
                     min="1"
                     value={item.quantity}
-                    onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                    className="w-14 font-mono text-center rounded-xl border border-neutral-800 bg-black px-2 py-2 text-xs text-white focus:border-white focus:outline-none transition"
+                    onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                    className="input-field w-14 font-mono text-center px-2 py-2 text-xs"
                   />
                   <button
                     type="button"
                     onClick={() => handleRemoveItemRow(idx)}
                     disabled={items.length <= 1}
-                    className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-800 hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                    className="rounded-lg p-2 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{ color: "var(--text-tertiary)" }}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -264,46 +297,58 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
           </div>
 
           {/* Tax & Tip Row */}
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-neutral-800">
+          <div className="grid grid-cols-2 gap-4 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
             <div>
-              <label className="block text-xs font-semibold text-neutral-400 mb-1">Tax Amount ({symbol})</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                Tax Amount ({symbol})
+              </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={taxAmount}
                 onChange={(e) => setTaxAmount(e.target.value)}
-                className="w-full font-mono rounded-xl border border-neutral-800 bg-black px-3 py-2 text-xs text-white focus:border-white focus:outline-none transition"
+                className="input-field w-full font-mono px-3 py-2 text-xs"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-neutral-400 mb-1">Tip Amount ({symbol})</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                Tip Amount ({symbol})
+              </label>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={tipAmount}
                 onChange={(e) => setTipAmount(e.target.value)}
-                className="w-full font-mono rounded-xl border border-neutral-800 bg-black px-3 py-2 text-xs text-white focus:border-white focus:outline-none transition"
+                className="input-field w-full font-mono px-3 py-2 text-xs"
               />
             </div>
           </div>
 
           {/* Total Preview */}
-          <div className="flex items-center justify-between rounded-2xl bg-black p-4 border border-neutral-800">
-            <span className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Estimated Total</span>
-            <span className="font-mono text-xl font-extrabold text-white">
+          <div
+            className="flex items-center justify-between rounded-2xl p-4"
+            style={{ background: "var(--bg-elevated)", border: "1px solid var(--border)" }}
+          >
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-secondary)" }}>
+              Estimated Total
+            </span>
+            <span className="font-mono text-xl font-extrabold" style={{ color: "var(--text-primary)" }}>
               {symbol}{calculateTotal().toFixed(2)}
             </span>
           </div>
         </form>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-neutral-800 bg-neutral-950/60 p-4">
+        <div
+          className="flex items-center justify-end gap-3 p-4"
+          style={{ borderTop: "1px solid var(--border)", background: "var(--bg-elevated)" }}
+        >
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-2.5 text-xs font-semibold text-neutral-400 hover:bg-neutral-800 hover:text-white transition"
+            className="btn-secondary px-4 py-2.5 text-xs font-semibold"
           >
             Cancel
           </button>
@@ -311,10 +356,10 @@ export default function ManualExpenseModal({ isOpen, onClose, groupId, members, 
             type="button"
             onClick={handleSubmit}
             disabled={loading || !merchantName.trim()}
-            className="flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-black shadow-md hover:bg-neutral-200 disabled:opacity-50 transition active:scale-95"
+            className="btn-primary flex items-center gap-2 px-5 py-2.5 text-xs font-bold"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin text-black" /> : <Plus className="h-4 w-4" />}
-            Save & Split Items
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Save &amp; Split Items
           </button>
         </div>
       </div>

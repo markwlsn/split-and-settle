@@ -70,7 +70,7 @@ export default function ProfileView({ onBack }) {
     <button
       onClick={onClick}
       disabled={!onClick}
-      className={`flex w-full items-center gap-3 px-4 py-3.5 transition ${onClick ? "active:opacity-70 cursor-pointer" : "cursor-default"}`}
+      className={`flex w-full items-center gap-3 px-4 py-3.5 transition text-left ${onClick ? "active:opacity-70 cursor-pointer" : "cursor-default"}`}
       style={{ color: danger ? "var(--destructive)" : "var(--text-primary)" }}
     >
       <div
@@ -81,16 +81,18 @@ export default function ProfileView({ onBack }) {
       >
         <Icon className="h-4 w-4" />
       </div>
-      <div className="flex flex-1 items-center justify-between min-w-0">
-        <span className="text-sm font-medium">{label}</span>
-        {value && (
-          <span className="text-sm font-normal truncate ml-2" style={{ color: "var(--text-secondary)" }}>
-            {value}
-          </span>
-        )}
-        {onClick && !danger && (
-          <ChevronRight className="h-4 w-4 shrink-0 ml-2" style={{ color: "var(--text-tertiary)" }} />
-        )}
+      <div className="flex flex-1 items-center justify-between min-w-0 gap-3">
+        <span className="text-sm font-medium truncate">{label}</span>
+        <div className="flex items-center gap-2 shrink-0 ml-auto">
+          {value && (
+            <span className="text-xs sm:text-sm font-normal text-right truncate" style={{ color: "var(--text-secondary)" }}>
+              {value}
+            </span>
+          )}
+          {onClick && !danger && (
+            <ChevronRight className="h-4 w-4 shrink-0" style={{ color: "var(--text-tertiary)" }} />
+          )}
+        </div>
       </div>
     </button>
   );

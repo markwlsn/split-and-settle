@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
+import TermsModal from "../components/TermsModal";
 import {
   Receipt,
   Sparkles,
@@ -161,6 +162,13 @@ export default function AuthView() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsInitialTab, setTermsInitialTab] = useState("terms");
+
+  const openTerms = (tab = "terms") => {
+    setTermsInitialTab(tab);
+    setShowTermsModal(true);
+  };
 
   // Field Touched Tracking
   const [touched, setTouched] = useState({
@@ -649,7 +657,30 @@ export default function AuthView() {
                   </div>
                 </div>
                 <span className="text-xs leading-tight" style={{ color: "var(--text-secondary)" }}>
-                  I agree to the <span style={{ color: "var(--accent)" }} className="cursor-pointer font-medium">Terms of Service</span> and <span style={{ color: "var(--accent)" }} className="cursor-pointer font-medium">Privacy Policy</span>
+                  I agree to the{" "}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openTerms("terms");
+                    }}
+                    className="cursor-pointer font-semibold underline underline-offset-2 hover:opacity-80 transition"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    Terms of Service
+                  </button>{" "}
+                  and{" "}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openTerms("privacy");
+                    }}
+                    className="cursor-pointer font-semibold underline underline-offset-2 hover:opacity-80 transition"
+                    style={{ color: "var(--accent)" }}
+                  >
+                    Privacy Policy
+                  </button>
                 </span>
               </label>
 
@@ -752,6 +783,14 @@ export default function AuthView() {
           ))}
         </div>
       </div>
+
+      {/* Terms & Privacy Policy Modal */}
+      <TermsModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        initialTab={termsInitialTab}
+        onAccept={() => setAgreedToTerms(true)}
+      />
     </div>
   );
 }

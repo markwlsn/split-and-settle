@@ -14,6 +14,12 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ error: 'Invalid or expired authorization token' });
     }
 
+    if (data.user.user_metadata?.is_archived) {
+      return res.status(403).json({
+        error: 'This account has been deactivated or archived by an administrator.',
+      });
+    }
+
     req.userId = data.user.id;
     req.user = data.user;
     req.supabase = supabase;

@@ -22,6 +22,8 @@ router.get('/bills', adminController.getBills);
 
 // User & Identity Directory
 router.get('/users', adminController.getUsers);
+router.post('/users/:id/archive', adminController.archiveUser);
+router.post('/users/:id/unarchive', adminController.unarchiveUser);
 router.post('/users/:id/revoke-sessions', adminController.revokeUserSessions);
 
 // Security Audit Logs

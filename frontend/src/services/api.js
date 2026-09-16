@@ -172,6 +172,15 @@ export const api = {
     }),
   getAdminBills: () => request('/admin/bills'),
   getAdminUsers: () => request('/admin/users'),
+  archiveUser: (userId, reason) =>
+    request(`/admin/users/${userId}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+  unarchiveUser: (userId) =>
+    request(`/admin/users/${userId}/unarchive`, {
+      method: 'POST',
+    }),
   revokeUserSessions: (userId) =>
     request(`/admin/users/${userId}/revoke-sessions`, {
       method: 'POST',

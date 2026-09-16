@@ -283,6 +283,9 @@ async function getUsers(req, res, next) {
         phone: u.user_metadata?.phone || u.phone || null,
         avatarColor: u.user_metadata?.avatar_color || '#0a84ff',
         role: u.user_metadata?.role || (u.email === 'markwilsongeronilla01@gmail.com' ? 'admin' : 'user'),
+        isArchived: !!u.user_metadata?.is_archived,
+        archivedAt: u.user_metadata?.archived_at || null,
+        archiveReason: u.user_metadata?.archive_reason || null,
         createdAt: u.created_at,
         lastSignInAt: u.last_sign_in_at,
         emailConfirmed: !!u.email_confirmed_at,
@@ -290,6 +293,120 @@ async function getUsers(req, res, next) {
     }
 
     return res.json(users);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /admin/users/:id/archive
+ * Soft-deletes / freezes a user account without destroying financial records
+ */
+async function archiveUser(req, res, next) {
+  try {
+    const targetUserId = req.params.id;
+    const { reason = 'Account archived by administrator' } = req.body || {};
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Target user ID is required' });
+    }
+
+    if (targetUserId === req.userId) {
+      return res.status(400).json({ error: 'Admins cannot archive their own account.' });
+    }
+
+    // Get current user to preserve existing metadata
+    const { data: userData, error: getUserErr } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+    if (getUserErr || !userData || !userData.user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentMeta = userData.user.user_metadata || {};
+    const updatedMeta = {
+      ...currentMeta,
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archive_reason: reason,
+      archived_by: req.user?.email,
+    };
+
+    // Update metadata to flag account as archived
+    await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+      user_metadata: updatedMeta,
+    });
+
+    // Invalidate all active sessions immediately
+    await supabaseAdmin.auth.admin.signOut(targetUserId, 'global');
+
+    // Record in security audit log
+    await logSecurityEvent(
+      req.userId,
+      'ACCOUNT_ARCHIVED',
+      'user',
+      targetUserId,
+      {
+        targetEmail: userData.user.email,
+        reason,
+        archivedBy: req.user?.email,
+      },
+      req.ip
+    );
+
+    return res.json({
+      success: true,
+      message: `Account for ${userData.user.email} has been safely archived.`,
+      isArchived: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /admin/users/:id/unarchive
+ * Restores an archived user account
+ */
+async function unarchiveUser(req, res, next) {
+  try {
+    const targetUserId = req.params.id;
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Target user ID is required' });
+    }
+
+    const { data: userData, error: getUserErr } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+    if (getUserErr || !userData || !userData.user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentMeta = userData.user.user_metadata || {};
+    const updatedMeta = {
+      ...currentMeta,
+      is_archived: false,
+      unarchived_at: new Date().toISOString(),
+      unarchived_by: req.user?.email,
+    };
+
+    await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+      user_metadata: updatedMeta,
+    });
+
+    await logSecurityEvent(
+      req.userId,
+      'ACCOUNT_RESTORED',
+      'user',
+      targetUserId,
+      {
+        targetEmail: userData.user.email,
+        restoredBy: req.user?.email,
+      },
+      req.ip
+    );
+
+    return res.json({
+      success: true,
+      message: `Account for ${userData.user.email} has been restored successfully.`,
+      isArchived: false,
+    });
   } catch (err) {
     next(err);
   }
@@ -357,6 +474,8 @@ module.exports = {
   updateTicket,
   getBills,
   getUsers,
+  archiveUser,
+  unarchiveUser,
   revokeUserSessions,
   getAuditLogs,
 };

@@ -30,6 +30,9 @@ import {
   CornerDownRight,
   LogOut,
   TrendingUp,
+  Archive,
+  RotateCcw,
+  UserX,
 } from 'lucide-react';
 
 export default function AdminView({ onBack, onOpenUserApp }) {
@@ -57,9 +60,14 @@ export default function AdminView({ onBack, onOpenUserApp }) {
   const [triageNotes, setTriageNotes] = useState('');
   const [savingTriage, setSavingTriage] = useState(false);
 
-  // User security modal
+  // User security & archival modal
   const [revokingUser, setRevokingUser] = useState(null);
   const [revokingLoading, setRevokingLoading] = useState(false);
+  const [userFilter, setUserFilter] = useState('all'); // 'all' | 'active' | 'archived'
+  const [archivingUser, setArchivingUser] = useState(null);
+  const [archiveReason, setArchiveReason] = useState('');
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [unarchivingId, setUnarchivingId] = useState(null);
 
   // Bills search
   const [billSearch, setBillSearch] = useState('');
@@ -186,6 +194,80 @@ export default function AdminView({ onBack, onOpenUserApp }) {
       setRevokingLoading(false);
     }
   };
+
+  // Archive user (soft-delete / freeze)
+  const handleConfirmArchive = async () => {
+    if (!archivingUser) return;
+    setArchiveLoading(true);
+    try {
+      await api.archiveUser(archivingUser.id, archiveReason || 'Account archived by administrator');
+      setUsersList((prev) =>
+        prev.map((u) =>
+          u.id === archivingUser.id
+            ? { ...u, isArchived: true, archivedAt: new Date().toISOString(), archiveReason }
+            : u
+        )
+      );
+      setAuditLogs((prev) => [
+        {
+          id: 'audit_' + Date.now(),
+          action: 'ACCOUNT_ARCHIVED',
+          target_type: 'user',
+          target_id: archivingUser.id,
+          details: { email: archivingUser.email, reason: archiveReason },
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      showToast(`Account for ${archivingUser.email} has been safely archived.`, 'success');
+      setArchivingUser(null);
+      setArchiveReason('');
+    } catch (err) {
+      showToast(err.message || 'Failed to archive account', 'error');
+    } finally {
+      setArchiveLoading(false);
+    }
+  };
+
+  // Restore user (unarchive)
+  const handleUnarchive = async (targetUser) => {
+    setUnarchivingId(targetUser.id);
+    try {
+      await api.unarchiveUser(targetUser.id);
+      setUsersList((prev) =>
+        prev.map((u) =>
+          u.id === targetUser.id
+            ? { ...u, isArchived: false, archivedAt: null, archiveReason: null }
+            : u
+        )
+      );
+      setAuditLogs((prev) => [
+        {
+          id: 'audit_' + Date.now(),
+          action: 'ACCOUNT_RESTORED',
+          target_type: 'user',
+          target_id: targetUser.id,
+          details: { email: targetUser.email },
+          created_at: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      showToast(`Account for ${targetUser.email} has been restored successfully.`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to restore account', 'error');
+    } finally {
+      setUnarchivingId(null);
+    }
+  };
+
+  // Filtered users
+  const filteredUsersList = useMemo(() => {
+    return usersList.filter((u) => {
+      if (userFilter === 'active') return !u.isArchived;
+      if (userFilter === 'archived') return u.isArchived;
+      return true;
+    });
+  }, [usersList, userFilter]);
 
   // Filtered tickets
   const filteredTickets = useMemo(() => {
@@ -877,7 +959,7 @@ export default function AdminView({ onBack, onOpenUserApp }) {
         {activeSubTab === 'users' && (
           <section className="space-y-4">
             <div
-              className="rounded-2xl p-4 flex items-center justify-between"
+              className="rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between"
               style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
             >
               <div>
@@ -885,74 +967,189 @@ export default function AdminView({ onBack, onOpenUserApp }) {
                   User &amp; Identity Directory
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                  Active user accounts, role allocations, and remote session security controls.
+                  Active user accounts, role allocations, account archival, and remote session security controls.
                 </p>
               </div>
-              <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                {usersList.length} Accounts
-              </span>
+
+              {/* User Filter (All, Active, Archived) */}
+              <div className="flex items-center gap-1 text-xs">
+                <span className="font-semibold text-xs mr-1" style={{ color: 'var(--text-secondary)' }}>
+                  Filter:
+                </span>
+                {[
+                  { id: 'all', label: `All (${usersList.length})` },
+                  { id: 'active', label: `Active (${usersList.filter((u) => !u.isArchived).length})` },
+                  { id: 'archived', label: `Archived (${usersList.filter((u) => u.isArchived).length})` },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setUserFilter(f.id)}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition"
+                    style={{
+                      background: userFilter === f.id ? 'var(--accent)' : 'var(--bg-elevated)',
+                      color: userFilter === f.id ? '#fff' : 'var(--text-primary)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {usersList.map((u) => {
-                const isOwner = u.email === 'markwilsongeronilla01@gmail.com' || u.role === 'admin';
-                return (
-                  <div
-                    key={u.id}
-                    className="rounded-2xl p-4 flex items-center justify-between gap-3 shadow-sm transition hover:shadow-md"
-                    style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl text-white font-bold text-sm shrink-0"
-                        style={{ background: u.avatarColor || '#0a84ff' }}
-                      >
-                        {(u.name || u.email || 'U')[0].toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
-                            {u.name}
-                          </p>
-                          {isOwner && (
-                            <span
-                              className="rounded-full px-1.5 py-0.2 text-[9px] font-bold uppercase"
-                              style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--accent)' }}
-                            >
-                              Admin
-                            </span>
-                          )}
+            {filteredUsersList.length === 0 ? (
+              <div
+                className="rounded-2xl p-12 text-center"
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+              >
+                <Users className="mx-auto h-12 w-12 text-slate-400 mb-3" />
+                <h4 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                  No accounts in this filter
+                </h4>
+                <p className="text-xs mt-1 max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
+                  {userFilter === 'archived'
+                    ? 'No accounts are currently archived. Archiving allows you to suspend accounts without wiping historical bills.'
+                    : 'No active user accounts found.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {filteredUsersList.map((u) => {
+                  const isOwner = u.email === 'markwilsongeronilla01@gmail.com' || u.role === 'admin' || u.id === user?.id;
+                  const isArchived = u.isArchived;
+
+                  return (
+                    <div
+                      key={u.id}
+                      className="rounded-2xl p-4 flex flex-col justify-between gap-3 shadow-sm transition hover:shadow-md"
+                      style={{
+                        background: 'var(--bg-surface)',
+                        border: isArchived ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border)',
+                        opacity: isArchived ? 0.85 : 1,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3 min-w-0">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div
+                            className="flex h-10 w-10 items-center justify-center rounded-2xl text-white font-bold text-sm shrink-0"
+                            style={{ background: isArchived ? '#64748b' : u.avatarColor || '#0a84ff' }}
+                          >
+                            {(u.name || u.email || 'U')[0].toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-xs font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                                {u.name}
+                              </p>
+                              {isOwner && (
+                                <span
+                                  className="rounded-full px-1.5 py-0.2 text-[9px] font-bold uppercase"
+                                  style={{ background: 'rgba(10, 132, 255, 0.15)', color: 'var(--accent)' }}
+                                >
+                                  Admin
+                                </span>
+                              )}
+                              {isArchived ? (
+                                <span
+                                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25"
+                                >
+                                  <Archive className="h-2.5 w-2.5" /> Archived
+                                </span>
+                              ) : (
+                                <span
+                                  className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-500"
+                                >
+                                  Active
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                              {u.email}
+                            </p>
+                            {u.phone && (
+                              <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                                📞 {u.phone}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
-                          {u.email}
-                        </p>
-                        {u.phone && (
-                          <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
-                            📞 {u.phone}
-                          </p>
+
+                        {u.createdAt && (
+                          <span className="text-[10px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                            Joined {new Date(u.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Archival Notice if archived */}
+                      {isArchived && u.archiveReason && (
+                        <div
+                          className="rounded-xl p-2 text-[11px] leading-tight"
+                          style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)' }}
+                        >
+                          <span className="font-semibold text-amber-600 dark:text-amber-400">Archived: </span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{u.archiveReason}</span>
+                        </div>
+                      )}
+
+                      {/* Action buttons row */}
+                      <div className="pt-1 flex items-center justify-end gap-2 border-t" style={{ borderColor: 'var(--border)' }}>
+                        {isArchived ? (
+                          <button
+                            onClick={() => handleUnarchive(u)}
+                            disabled={unarchivingId === u.id}
+                            title="Restore and reactivate this user account"
+                            className="flex items-center gap-1 rounded-xl px-3 py-1.5 text-[11px] font-semibold transition active:scale-95 hover:opacity-90"
+                            style={{
+                              background: 'rgba(52, 199, 89, 0.12)',
+                              color: 'var(--success)',
+                              border: '1px solid rgba(52, 199, 89, 0.25)',
+                            }}
+                          >
+                            <RotateCcw className={`h-3 w-3 ${unarchivingId === u.id ? 'animate-spin' : ''}`} />
+                            <span>{unarchivingId === u.id ? 'Restoring...' : 'Restore Account'}</span>
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              disabled={isOwner}
+                              onClick={() => {
+                                setArchivingUser(u);
+                                setArchiveReason('');
+                              }}
+                              title={isOwner ? 'Cannot archive primary administrator' : 'Archive account (freeze / soft-delete)'}
+                              className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                              style={{
+                                background: 'rgba(245, 158, 11, 0.1)',
+                                color: 'var(--warning)',
+                                border: '1px solid rgba(245, 158, 11, 0.25)',
+                              }}
+                            >
+                              <Archive className="h-3 w-3" />
+                              <span>Archive</span>
+                            </button>
+
+                            <button
+                              onClick={() => setRevokingUser(u)}
+                              title="Revoke all active sessions for this account"
+                              className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95"
+                              style={{
+                                background: 'rgba(255, 69, 58, 0.1)',
+                                color: 'var(--destructive)',
+                                border: '1px solid rgba(255, 69, 58, 0.25)',
+                              }}
+                            >
+                              <LogOut className="h-3 w-3" />
+                              <span>Revoke Sessions</span>
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>
-
-                    <div className="shrink-0 flex items-center gap-2">
-                      <button
-                        onClick={() => setRevokingUser(u)}
-                        title="Revoke all active sessions for this account"
-                        className="flex items-center gap-1 rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition active:scale-95"
-                        style={{
-                          background: 'rgba(255, 69, 58, 0.1)',
-                          color: 'var(--destructive)',
-                          border: '1px solid rgba(255, 69, 58, 0.25)',
-                        }}
-                      >
-                        <LogOut className="h-3 w-3" />
-                        <span className="hidden sm:inline">Revoke Sessions</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
@@ -1218,6 +1415,88 @@ export default function AdminView({ onBack, onOpenUserApp }) {
                 style={{ background: 'var(--destructive)', color: '#fff' }}
               >
                 {revokingLoading ? 'Revoking...' : 'Confirm Revoke'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: CONFIRM ARCHIVE USER ACCOUNT */}
+      {archivingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div
+            className="w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-4"
+            style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div className="text-center space-y-2">
+              <div
+                className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl"
+                style={{ background: 'rgba(245, 158, 11, 0.15)', color: 'var(--warning)' }}
+              >
+                <Archive className="h-7 w-7" />
+              </div>
+              <h3 className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
+                Archive User Account?
+              </h3>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                Archiving <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{archivingUser.email}</span> will immediately freeze the account, invalidate active sessions, and prevent new logins.
+              </p>
+            </div>
+
+            <div
+              className="rounded-xl p-3 text-xs leading-relaxed"
+              style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)' }}
+            >
+              <p className="font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                🛡️ Financial Data Preserved
+              </p>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Unlike permanent hard deletion, archiving preserves all past receipts, debts, and split calculations so remaining group members' balances stay accurate.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                Archival Reason (Optional)
+              </label>
+              <input
+                type="text"
+                value={archiveReason}
+                onChange={(e) => setArchiveReason(e.target.value)}
+                placeholder="e.g. Account suspended per user request or policy violation"
+                className="w-full rounded-xl p-2.5 text-xs transition"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setArchivingUser(null)}
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={archiveLoading}
+                onClick={handleConfirmArchive}
+                className="flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold transition active:scale-95 disabled:opacity-50"
+                style={{ background: 'var(--warning)', color: '#000' }}
+              >
+                {archiveLoading ? 'Archiving...' : 'Confirm Archive'}
               </button>
             </div>
           </div>

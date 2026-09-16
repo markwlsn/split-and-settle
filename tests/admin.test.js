@@ -35,6 +35,18 @@ describe('Admin Security & RBAC Unit & Route Tests', () => {
       expect(res.status).toBe(401);
       expect(res.body).toHaveProperty('error');
     });
+
+    test('POST /admin/users/:id/archive without token returns 401 Unauthorized', async () => {
+      const res = await request(app).post('/admin/users/test-id/archive').send({ reason: 'Test' });
+      expect(res.status).toBe(401);
+      expect(res.body).toHaveProperty('error');
+    });
+
+    test('POST /admin/users/:id/unarchive without token returns 401 Unauthorized', async () => {
+      const res = await request(app).post('/admin/users/test-id/unarchive');
+      expect(res.status).toBe(401);
+      expect(res.body).toHaveProperty('error');
+    });
   });
 
   describe('requireAdmin Middleware Logic', () => {

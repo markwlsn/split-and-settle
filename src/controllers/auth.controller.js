@@ -32,6 +32,18 @@ async function login(req, res, next) {
     if (error) {
       return res.status(401).json({ error: error.message });
     }
+
+    if (data.user?.user_metadata?.is_archived) {
+      if (data.user.id) {
+        try {
+          await supabaseAdmin.auth.admin.signOut(data.user.id, 'global');
+        } catch (e) {}
+      }
+      return res.status(403).json({
+        error: 'This account has been deactivated or archived by an administrator. Please contact support.',
+      });
+    }
+
     return res.json({
       accessToken: data.session?.access_token || null,
       user: data.user,

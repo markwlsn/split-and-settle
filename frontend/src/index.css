@@ -221,8 +221,11 @@ html.light {
 }
 .animate-slide-up { animation: slide-up 0.28s cubic-bezier(0.34,1.56,0.64,1) forwards; }
 
-/* Bottom tab bar safe area */
-.pb-tab-bar { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+/* Bottom tab bar safe area: only on mobile screens */
+.pb-tab-bar { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+@media (min-width: 768px) {
+  .pb-tab-bar { padding-bottom: 2.5rem; }
+}
 .bottom-tab-bar {
   padding-bottom: env(safe-area-inset-bottom);
 }

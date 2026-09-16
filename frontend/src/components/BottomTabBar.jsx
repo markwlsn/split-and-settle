@@ -1,4 +1,4 @@
-﻿import React from "react";
+import React from "react";
 import { Users, Bell, Scale, UserCircle } from "lucide-react";
 
 const TABS = [
@@ -12,7 +12,7 @@ export default function BottomTabBar({ activeTab, onTabChange }) {
   return (
     <nav
       aria-label="Main navigation"
-      className="bottom-tab-bar fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t"
+      className="bottom-tab-bar fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t md:hidden"
       style={{
         background: "var(--tab-bar-bg)",
         borderColor: "var(--border)",
